@@ -1,0 +1,17 @@
+# --- PYTHON / DJANGO ---
+venv/
+__pycache__/
+*.pyc
+db.sqlite3
+.env
+
+# --- NODE / REACT ---
+node_modules/
+dist/
+build/
+.npm
+*.log
+
+# --- SISTEMA ---
+.DS_Store
+media/

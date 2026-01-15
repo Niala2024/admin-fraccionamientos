@@ -7,9 +7,10 @@ import {
 import QrCodeIcon from '@mui/icons-material/QrCode';
 import AddCircleIcon from '@mui/icons-material/AddCircle';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'; // Icono para volver al panel
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+
+// IMPORTACIÓN CENTRALIZADA (La clave para que funcione en Railway)
+import api from '../api/axiosConfig';
 
 function Visitas() {
   const navigate = useNavigate();
@@ -27,6 +28,9 @@ function Visitas() {
   const [openQR, setOpenQR] = useState(false);
   const [qrActual, setQrActual] = useState(null);
 
+  // Detectar la URL base para las imágenes (Nube o Local)
+  const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+
   // --- LÓGICA DE NAVEGACIÓN INTELIGENTE ---
   const userRol = localStorage.getItem('rol');
   const rolLimpio = userRol ? userRol.toLowerCase().trim() : "";
@@ -34,21 +38,23 @@ function Visitas() {
 
   const handleVolver = () => {
     if (esAdmin) {
-        navigate('/admin-panel'); // Admin vuelve a su panel general
+        navigate('/admin-panel'); 
     } else {
-        navigate('/dashboard'); // Residente vuelve a su casa
+        navigate('/dashboard'); 
     }
   };
-  // ----------------------------------------
 
   const cargarVisitas = async () => {
     const token = localStorage.getItem('token');
     if (!token) { navigate('/'); return; }
     try {
-      const response = await axios.get('http://127.0.0.1:8000/api/visitas/', {
+      // USAMOS 'api.get' Y LA RUTA RELATIVA
+      const response = await api.get('/api/visitas/', {
         headers: { 'Authorization': `Token ${token}` }
       });
-      setVisitas(response.data);
+      // Soporte para paginación si el backend la activa
+      const datos = Array.isArray(response.data) ? response.data : (response.data.results || []);
+      setVisitas(datos);
       setLoading(false);
     } catch (error) {
       console.error(error);
@@ -68,7 +74,8 @@ function Visitas() {
         formData.append('fecha_llegada', fechaLlegada);
         if(placas) formData.append('placas', placas);
         
-        await axios.post('http://127.0.0.1:8000/api/visitas/', formData, {
+        // USAMOS 'api.post'
+        await api.post('/api/visitas/', formData, {
             headers: { 
                 'Authorization': `Token ${token}`,
                 'Content-Type': 'multipart/form-data' 
@@ -91,9 +98,12 @@ function Visitas() {
 
   const verQR = (urlImagen) => {
       if (!urlImagen) return;
+      
+      // Si la URL ya viene completa (S3/Cloudinary), úsala. 
+      // Si es relativa (/media/...), agrégale el dominio del backend.
       const urlFinal = urlImagen.startsWith('http') 
         ? urlImagen 
-        : `http://127.0.0.1:8000${urlImagen}`;
+        : `${BASE_URL}${urlImagen}`;
       
       setQrActual(urlFinal);
       setOpenQR(true);
@@ -101,7 +111,6 @@ function Visitas() {
 
   return (
     <Box sx={{ flexGrow: 1 }}>
-      {/* BARRA SUPERIOR ADAPTATIVA */}
       <AppBar position="static" sx={{ bgcolor: esAdmin ? '#1e293b' : 'secondary.main' }}>
         <Toolbar>
           <Button 
@@ -166,7 +175,7 @@ function Visitas() {
         </Grid>
       </Container>
 
-      {/* MODALES (Crear y QR) - Se mantienen igual */}
+      {/* MODAL CREAR */}
       <Dialog open={openCrear} onClose={() => setOpenCrear(false)}>
         <DialogTitle>Nuevo Pase de Acceso</DialogTitle>
         <DialogContent>
@@ -186,6 +195,7 @@ function Visitas() {
         </DialogContent>
       </Dialog>
 
+      {/* MODAL VER QR */}
       <Dialog open={openQR} onClose={() => setOpenQR(false)}>
           <Box sx={{p:4, textAlign:'center'}}>
               <Typography variant="h6" gutterBottom>Muestra este código en caseta</Typography>

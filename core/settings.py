@@ -19,10 +19,8 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default-para-local')
 # Por seguridad, si no encuentra la variable, asume False.
 DEBUG = os.getenv('DEBUG') == 'True'
 
-# 3. ALLOWED_HOSTS: Lee del .env y separa por comas.
-# Ejemplo en .env: ALLOWED_HOSTS=localhost,127.0.0.1,mi-sitio.com
-allowed_hosts_env = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1')
-ALLOWED_HOSTS = allowed_hosts_env.split(',')
+# 3. ALLOWED_HOSTS: Permitir todo para que Railway no bloquee (CORREGIDO)
+ALLOWED_HOSTS = ["*"]
 
 
 INSTALLED_APPS = [

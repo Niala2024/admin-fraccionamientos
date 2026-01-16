@@ -35,14 +35,14 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DomainIcon from '@mui/icons-material/Domain'; 
 
 import { useNavigate } from 'react-router-dom';
-import api from '../api/axiosConfig'; // <--- IMPORTACIÓN CENTRALIZADA
+import api from '../api/axiosConfig'; 
 import Footer from '../components/Footer';
 
 function AdminPanel() {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar(); 
   
-  // INICIALIZACIÓN SEGURA DE ESTADOS (Arrays vacíos)
+  // INICIALIZACIÓN SEGURA DE ESTADOS
   const [fraccionamientos, setFraccionamientos] = useState([]);
   const [fraccSeleccionado, setFraccSeleccionado] = useState(''); 
   const [isSuperUser, setIsSuperUser] = useState(false);
@@ -85,6 +85,8 @@ function AdminPanel() {
   const [montoExtra, setMontoExtra] = useState('');
   const [conceptoExtra, setConceptoExtra] = useState('');
   const [formCasa, setFormCasa] = useState({ calle_id: '', numero: '', saldo: 0 });
+  
+  // FORMULARIO DE USUARIO (Incluye teléfono)
   const [formUser, setFormUser] = useState({ id: null, username: '', password: '', email: '', nombre: '', telefono: '', casa_id: '' });
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [formEgreso, setFormEgreso] = useState({ tipo_id: '', monto: '', descripcion: '' });
@@ -103,7 +105,6 @@ function AdminPanel() {
 
       const headers = { 'Authorization': `Token ${token}` };
       
-      // CARGAR FRACCIONAMIENTOS
       const resFracc = await api.get('/api/fraccionamientos/', { headers });
       const listaFracc = resFracc.data.results || resFracc.data;
       setFraccionamientos(Array.isArray(listaFracc) ? listaFracc : []);
@@ -115,14 +116,12 @@ function AdminPanel() {
           else if(listaFracc.length > 0) setFraccSeleccionado(listaFracc[0].id);
       }
 
-      // CARGA SIMULTÁNEA DE DATOS
       const [resCasas, resCalles, resUsers] = await Promise.all([
           api.get('/api/casas/', { headers }),
           api.get('/api/calles/', { headers }),
           api.get('/api/usuarios/', { headers })
       ]);
       
-      // Validación extra para evitar undefined
       const dataCasas = resCasas.data.results || resCasas.data;
       setCasas(Array.isArray(dataCasas) ? dataCasas : []);
 
@@ -134,11 +133,9 @@ function AdminPanel() {
       
       setLoading(false);
     } catch (e) { 
-        // --- MEJORA UX: ALERTA DE SESIÓN EXPIRADA ---
         if(e.response?.status===401) {
             enqueueSnackbar("Tu sesión ha expirado por seguridad. Ingresa nuevamente.", { variant: 'warning', autoHideDuration: 3000 });
             localStorage.clear();
-            // Pequeña pausa para que el usuario lea el mensaje
             setTimeout(() => navigate('/'), 1500);
         } else {
             console.error("Error cargando datos:", e);
@@ -149,8 +146,6 @@ function AdminPanel() {
 
   useEffect(() => { cargarDatos(); }, [navigate]);
 
-  // --- BLINDAJE CONTRA PANTALLA BLANCA ---
-  // Validamos que 'casas' sea un array antes de usar .filter
   const listaCasasSegura = Array.isArray(casas) ? casas : [];
   const casasFiltradas = listaCasasSegura.filter(c => !fraccSeleccionado || c.fraccionamiento === fraccSeleccionado);
   
@@ -160,17 +155,50 @@ function AdminPanel() {
       setStats({ deudaTotal: deuda, casasConDeuda: morosos, totalCasas: casasFiltradas.length });
   }, [casas, fraccSeleccionado]);
 
+  // COLUMNAS CASAS (CORREGIDAS PARA DATA GRID v6+)
   const columnasCasas = [
     { field: 'calle_nombre', headerName: 'Calle', width: 150 },
     { field: 'numero_exterior', headerName: 'Número', width: 100 },
-    { field: 'propietario', headerName: 'Propietario', width: 200, valueGetter: (params) => params.row?.propietario || '-- Vacante --' },
-    { field: 'saldo_pendiente', headerName: 'Saldo', width: 130, renderCell: (params) => (<Typography fontWeight="bold" color={params.value > 0 ? 'error' : 'success'}>${params.value}</Typography>) },
-    { field: 'acciones', headerName: 'Contacto', width: 100, renderCell: (params) => (params.row.propietario ? (<IconButton color="success" onClick={() => enviarWhatsApp(params.row.telefono_propietario, params.row.propietario, params.row.saldo_pendiente)}><WhatsAppIcon /></IconButton>) : null) }
+    { 
+      field: 'propietario', 
+      headerName: 'Propietario', 
+      width: 200, 
+      valueGetter: (value, row) => {
+          const datos = row || value?.row; 
+          return datos?.propietario || '-- Vacante --';
+      }
+    },
+    { 
+      field: 'saldo_pendiente', 
+      headerName: 'Saldo', 
+      width: 130, 
+      renderCell: (params) => (
+        <Typography fontWeight="bold" color={params.value > 0 ? 'error' : 'success'}>
+          ${params.value}
+        </Typography>
+      ) 
+    },
+    { 
+      field: 'acciones', 
+      headerName: 'Contacto', 
+      width: 100, 
+      renderCell: (params) => {
+        const datos = params.row || params;
+        return datos.propietario ? (
+          <IconButton color="success" onClick={() => enviarWhatsApp(datos.telefono_propietario, datos.propietario, datos.saldo_pendiente)}>
+            <WhatsAppIcon />
+          </IconButton>
+        ) : null;
+      }
+    }
   ];
 
+  // COLUMNAS USUARIOS (CON EL FIX DEL TELÉFONO)
   const columnasUsuarios = [
     { field: 'id', headerName: 'ID', width: 70 },
     { field: 'first_name', headerName: 'Nombre', width: 200 },
+    // ✅ FIX: Columna Teléfono agregada
+    { field: 'telefono', headerName: 'Teléfono', width: 150 }, 
     { field: 'username', headerName: 'Usuario', width: 150 },
     { field: 'rol', headerName: 'Rol', width: 150 },
     { field: 'email', headerName: 'Email', width: 200 },
@@ -247,8 +275,38 @@ function AdminPanel() {
   };
   
   const descargarReporteAccesos = async () => { const token = localStorage.getItem('token'); const r = await api.get(`/api/reporte-accesos/?inicio=${fechaInicio}&fin=${fechaFin}`, { headers: { 'Authorization': `Token ${token}` }, responseType: 'blob' }); const url = window.URL.createObjectURL(new Blob([r.data])); const l = document.createElement('a'); l.href = url; l.download = `Accesos.pdf`; l.click(); };
-  const abrirModalUsuario = (tipo, u=null) => { setTipoUsuario(tipo); if(u){ setIsEditingUser(true); setFormUser({id:u.id, username:u.username, password:'', email:u.email, nombre:u.first_name||'', telefono:u.telefono||'', casa_id:u.casa||''}); }else{ setIsEditingUser(false); setFormUser({id:null, username:'', password:'', email:'', nombre:'', telefono:'', casa_id:''}); } setOpenUsuario(true); };
   const descargarPlantilla = () => { const h="username,password,email,nombre,apellido,telefono,rol,calle,numero_casa"; const e="juan,123,mail@x.com,Juan,Perez,6181234,Residente,Calle 1,10"; const u=encodeURI("data:text/csv;charset=utf-8,"+h+"\n"+e); const l=document.createElement("a"); l.href=u; l.download="plantilla.csv"; document.body.appendChild(l); l.click(); };
+
+  // --- LÓGICA DE MODAL USUARIO ---
+  const abrirModalUsuario = (tipo, u = null) => {
+    setTipoUsuario(tipo);
+    if (u) {
+      // MODO EDICIÓN
+      setIsEditingUser(true);
+      setFormUser({
+        id: u.id,
+        username: u.username,
+        password: '',
+        email: u.email,
+        nombre: u.first_name || '',  
+        telefono: u.telefono || '',  
+        casa_id: u.casa || ''
+      });
+    } else {
+      // MODO CREACIÓN
+      setIsEditingUser(false);
+      setFormUser({
+        id: null,
+        username: '',
+        password: '',
+        email: '',
+        nombre: '',
+        telefono: '',
+        casa_id: ''
+      });
+    }
+    setOpenUsuario(true);
+  };
 
   const KpiCard = ({ title, value, subtitle, icon, color }) => (
     <Card elevation={4} sx={{ height: '100%', borderRadius: 3 }}>
@@ -321,7 +379,44 @@ function AdminPanel() {
       <Dialog open={openImportar} onClose={()=>setOpenImportar(false)} fullWidth maxWidth="sm"><DialogTitle sx={{bgcolor:'#4caf50', color:'white'}}>Importar</DialogTitle><DialogContent sx={{mt:2}}><Button startIcon={<DownloadIcon/>} onClick={descargarPlantilla}>Descargar Plantilla</Button><Button component="label" variant="contained" fullWidth startIcon={<UploadFileIcon/>} sx={{mt:2}}>{archivoCSV ? archivoCSV.name : "Subir CSV"}<input type="file" hidden accept=".csv" onChange={(e)=>setArchivoCSV(e.target.files[0])} /></Button>{resultadoImportacion && <Box sx={{mt:2, p:2, bgcolor:'#e8f5e9'}}>{resultadoImportacion.mensaje}</Box>}</DialogContent><DialogActions><Button onClick={()=>setOpenImportar(false)}>Cerrar</Button><Button onClick={handleSubirCSV} variant="contained" color="success" disabled={!archivoCSV}>Procesar</Button></DialogActions></Dialog>
       
       <Dialog open={openDirectorio} onClose={() => setOpenDirectorio(false)} fullWidth maxWidth="lg"><DialogTitle sx={{bgcolor: '#2e7d32', color: 'white'}}>Directorio de Usuarios</DialogTitle><DialogContent><Tabs value={tabDirectorio} onChange={(e,v)=>setTabDirectorio(v)} centered sx={{mb:2}}><Tab label="Residentes" /><Tab label="Guardias / Staff" /></Tabs><Box sx={{ height: 400, width: '100%' }}><DataGrid rows={usuarios.filter(u => tabDirectorio === 0 ? (!u.rol || u.rol.toLowerCase().includes('residente')) : (u.rol && u.rol.toLowerCase().includes('guardia')))} columns={columnasUsuarios} pageSize={5} /></Box></DialogContent><DialogActions><Button onClick={() => setOpenDirectorio(false)}>Cerrar</Button></DialogActions></Dialog>
-      <Dialog open={openUsuario} onClose={()=>setOpenUsuario(false)}><DialogTitle>Usuario</DialogTitle><DialogContent><TextField margin="dense" label="Nombre" fullWidth value={formUser.nombre} onChange={(e)=>setFormUser({...formUser, nombre:e.target.value})}/><TextField margin="dense" label="Usuario" fullWidth value={formUser.username} onChange={(e)=>setFormUser({...formUser, username:e.target.value})}/><TextField margin="dense" label="Password" type="password" fullWidth value={formUser.password} onChange={(e)=>setFormUser({...formUser, password:e.target.value})}/><TextField margin="dense" label="Email" fullWidth value={formUser.email} onChange={(e)=>setFormUser({...formUser, email:e.target.value})}/>{tipoUsuario==='residente' && (<FormControl fullWidth margin="dense"><InputLabel>Casa</InputLabel><Select value={formUser.casa_id} onChange={(e)=>setFormUser({...formUser, casa_id:e.target.value})}>{casasFiltradas.map(c=><MenuItem key={c.id} value={c.id}>{c.calle_nombre} #{c.numero_exterior}</MenuItem>)}</Select></FormControl>)}</DialogContent><DialogActions><Button onClick={()=>setOpenUsuario(false)}>Cancelar</Button><Button onClick={handleGuardarUsuario}>Guardar</Button></DialogActions></Dialog>
+      
+      <Dialog open={openUsuario} onClose={()=>setOpenUsuario(false)}>
+        <DialogTitle>{isEditingUser ? 'Editar Usuario' : 'Nuevo Usuario'}</DialogTitle>
+        <DialogContent>
+          <TextField 
+            margin="dense" label="Nombre Completo" fullWidth 
+            value={formUser.nombre} onChange={(e)=>setFormUser({...formUser, nombre:e.target.value})}
+          />
+          <TextField 
+            margin="dense" label="Usuario" fullWidth 
+            value={formUser.username} onChange={(e)=>setFormUser({...formUser, username:e.target.value})}
+            autoComplete="off" inputProps={{ autoComplete: 'off' }} 
+          />
+          <TextField 
+            margin="dense" label={isEditingUser ? "Cambiar Password (Opcional)" : "Password"} type="password" fullWidth 
+            value={formUser.password} onChange={(e)=>setFormUser({...formUser, password:e.target.value})}
+            autoComplete="new-password" inputProps={{ autoComplete: 'new-password' }} 
+          />
+          <TextField margin="dense" label="Email" fullWidth value={formUser.email} onChange={(e)=>setFormUser({...formUser, email:e.target.value})}/>
+          
+          <TextField margin="dense" label="Teléfono / WhatsApp" fullWidth value={formUser.telefono} onChange={(e)=>setFormUser({...formUser, telefono:e.target.value})}/>
+
+          {tipoUsuario==='residente' && (
+            <FormControl fullWidth margin="dense">
+              <InputLabel>Casa</InputLabel>
+              <Select value={formUser.casa_id} onChange={(e)=>setFormUser({...formUser, casa_id:e.target.value})}>
+                <MenuItem value=""><em>Ninguna</em></MenuItem>
+                {casasFiltradas.map(c=><MenuItem key={c.id} value={c.id}>{c.calle_nombre} #{c.numero_exterior}</MenuItem>)}
+              </Select>
+            </FormControl>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={()=>setOpenUsuario(false)}>Cancelar</Button>
+          <Button onClick={handleGuardarUsuario} variant="contained">{isEditingUser ? 'Actualizar' : 'Guardar'}</Button>
+        </DialogActions>
+      </Dialog>
+      
       <Dialog open={openCasa} onClose={() => setOpenCasa(false)}><DialogTitle>Nueva Casa</DialogTitle><DialogContent><FormControl fullWidth margin="dense"><InputLabel>Calle</InputLabel><Select value={formCasa.calle_id} onChange={(e) => setFormCasa({...formCasa, calle_id: e.target.value})}>{calles.map(c => <MenuItem key={c.id} value={c.id}>{c.nombre}</MenuItem>)}</Select></FormControl><TextField margin="dense" label="Número" fullWidth onChange={(e) => setFormCasa({...formCasa, numero: e.target.value})} /></DialogContent><DialogActions><Button onClick={() => setOpenCasa(false)}>Cancelar</Button><Button onClick={handleCrearCasa}>Guardar</Button></DialogActions></Dialog>
       <Dialog open={openCalle} onClose={()=>setOpenCalle(false)}><DialogTitle>Nueva Calle</DialogTitle><DialogContent><TextField fullWidth label="Nombre" value={nombreCalle} onChange={(e)=>setNombreCalle(e.target.value)} /></DialogContent><DialogActions><Button onClick={()=>setOpenCalle(false)}>Cerrar</Button><Button onClick={handleCrearCalle}>Crear</Button></DialogActions></Dialog>
       <Dialog open={openContabilidad} onClose={() => setOpenContabilidad(false)} fullWidth maxWidth="lg"><DialogTitle sx={{bgcolor: '#ed6c02', color: 'white'}}>Centro Financiero</DialogTitle><DialogContent><Tabs value={tabContabilidad} onChange={(e,v)=>setTabContabilidad(v)} centered sx={{mb:2}}><Tab label="Validar Pagos" /><Tab label="Gastos" /><Tab label="Cobro Extra" /></Tabs>{tabContabilidad === 0 && (<Box>{pagosPendientes.length===0 ? <Alert severity="success">Todo al día</Alert> : (<Table size="small"><TableHead><TableRow><TableCell>Casa</TableCell><TableCell>Monto</TableCell><TableCell>Foto</TableCell><TableCell>Acción</TableCell></TableRow></TableHead><TableBody>{pagosPendientes.map(p=>(<TableRow key={p.id}><TableCell>Casa {p.casa}</TableCell><TableCell>${p.monto}</TableCell><TableCell>{p.comprobante ? <a href={p.comprobante} target="_blank">Ver</a> : '-'}</TableCell><TableCell><Button size="small" color="success" onClick={()=>handleValidarPago(p.id,'aprobar')}>OK</Button><Button size="small" color="error" onClick={()=>handleValidarPago(p.id,'rechazar')}>X</Button></TableCell></TableRow>))}</TableBody></Table>)}</Box>)}{tabContabilidad === 1 && (<Box><Box display="flex" gap={2} mb={2}><Select size="small" value={formEgreso.tipo_id} onChange={(e)=>setFormEgreso({...formEgreso, tipo_id:e.target.value})}>{tiposEgresos.map(t=><MenuItem key={t.id} value={t.id}>{t.nombre}</MenuItem>)}</Select><TextField size="small" label="Monto" type="number" onChange={(e)=>setFormEgreso({...formEgreso, monto:e.target.value})} /><Button variant="contained" onClick={handleRegistrarEgreso}>Registrar</Button></Box><Table size="small"><TableBody>{listaEgresos.map(e=><TableRow key={e.id}><TableCell>{e.fecha_pago}</TableCell><TableCell>{e.nombre_gasto}</TableCell><TableCell>-${e.monto}</TableCell></TableRow>)}</TableBody></Table></Box>)}{tabContabilidad === 2 && (<Box sx={{textAlign:'center', p:3}}><Typography color="error">Cobro Masivo</Typography><TextField label="Concepto" value={conceptoExtra} onChange={(e)=>setConceptoExtra(e.target.value)} sx={{m:1}}/><TextField label="Monto" type="number" value={montoExtra} onChange={(e)=>setMontoExtra(e.target.value)} sx={{m:1}}/><Button variant="contained" color="error" onClick={handleCargoMasivo}>Aplicar</Button></Box>)}</DialogContent><DialogActions><Button onClick={()=>setOpenContabilidad(false)}>Cerrar</Button></DialogActions></Dialog>

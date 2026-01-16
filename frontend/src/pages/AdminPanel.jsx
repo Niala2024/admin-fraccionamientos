@@ -12,6 +12,7 @@ import { useSnackbar } from 'notistack';
 // Iconos
 import SecurityIcon from '@mui/icons-material/Security';
 import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import EmailIcon from '@mui/icons-material/Email'; 
 import HomeIcon from '@mui/icons-material/Home';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
@@ -33,7 +34,8 @@ import DownloadIcon from '@mui/icons-material/Download';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'; 
 import DomainIcon from '@mui/icons-material/Domain'; 
-import MonetizationOnIcon from '@mui/icons-material/MonetizationOn'; // Icono para el botón de cuota
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
+import AccountCircleIcon from '@mui/icons-material/AccountCircle'; // ✅ NUEVO ICONO
 
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axiosConfig'; 
@@ -43,7 +45,7 @@ function AdminPanel() {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar(); 
   
-  // INICIALIZACIÓN SEGURA DE ESTADOS
+  // INICIALIZACIÓN
   const [fraccionamientos, setFraccionamientos] = useState([]);
   const [fraccSeleccionado, setFraccSeleccionado] = useState(''); 
   const [isSuperUser, setIsSuperUser] = useState(false);
@@ -55,6 +57,7 @@ function AdminPanel() {
   
   const [stats, setStats] = useState({ deudaTotal: 0, casasConDeuda: 0, totalCasas: 0 });
 
+  // Modales
   const [openFracc, setOpenFracc] = useState(false);
   const [nombreNuevoFracc, setNombreNuevoFracc] = useState('');
   const [openCasa, setOpenCasa] = useState(false);
@@ -64,11 +67,13 @@ function AdminPanel() {
   const [openCalle, setOpenCalle] = useState(false);
   const [openPersonal, setOpenPersonal] = useState(false);
   const [openImportar, setOpenImportar] = useState(false); 
-  
-  // ✅ NUEVOS ESTADOS PARA LA CUOTA
   const [openCuota, setOpenCuota] = useState(false);
-  const [nuevaCuota, setNuevaCuota] = useState('');
 
+  // Email
+  const [openEmail, setOpenEmail] = useState(false);
+  const [emailData, setEmailData] = useState({ para: '', nombre: '', asunto: '', mensaje: '' });
+
+  const [nuevaCuota, setNuevaCuota] = useState('');
   const [archivoCSV, setArchivoCSV] = useState(null);
   const [resultadoImportacion, setResultadoImportacion] = useState(null);
 
@@ -91,7 +96,6 @@ function AdminPanel() {
   const [conceptoExtra, setConceptoExtra] = useState('');
   const [formCasa, setFormCasa] = useState({ calle_id: '', numero: '', saldo: 0 });
   
-  // FORMULARIO DE USUARIO (Incluye teléfono)
   const [formUser, setFormUser] = useState({ id: null, username: '', password: '', email: '', nombre: '', telefono: '', casa_id: '' });
   const [isEditingUser, setIsEditingUser] = useState(false);
   const [formEgreso, setFormEgreso] = useState({ tipo_id: '', monto: '', descripcion: '' });
@@ -160,7 +164,31 @@ function AdminPanel() {
       setStats({ deudaTotal: deuda, casasConDeuda: morosos, totalCasas: casasFiltradas.length });
   }, [casas, fraccSeleccionado]);
 
-  // COLUMNAS CASAS (CORREGIDAS PARA DATA GRID v6+)
+  const handleAbrirEmail = (email, nombre) => {
+      if(!email) return enqueueSnackbar("Este vecino no tiene email registrado", { variant: 'warning' });
+      setEmailData({
+          para: email,
+          nombre: nombre,
+          asunto: 'Aviso de Administración',
+          mensaje: `Hola ${nombre},\n\nTe escribimos para informarte que...`
+      });
+      setOpenEmail(true);
+  };
+
+  const handleEnviarEmailReal = async () => {
+      try {
+          await api.post('/api/usuarios/enviar_correo_vecino/', {
+              destinatario: emailData.para,
+              asunto: emailData.asunto,
+              mensaje: emailData.mensaje
+          }, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` }});
+          enqueueSnackbar("Correo enviado correctamente", { variant: 'success' });
+          setOpenEmail(false);
+      } catch (error) {
+          enqueueSnackbar("Error al enviar el correo", { variant: 'error' });
+      }
+  };
+
   const columnasCasas = [
     { field: 'calle_nombre', headerName: 'Calle', width: 150 },
     { field: 'numero_exterior', headerName: 'Número', width: 100 },
@@ -178,31 +206,28 @@ function AdminPanel() {
       headerName: 'Saldo', 
       width: 130, 
       renderCell: (params) => (
-        <Typography fontWeight="bold" color={params.value > 0 ? 'error' : 'success'}>
-          ${params.value}
-        </Typography>
+        <Typography fontWeight="bold" color={params.value > 0 ? 'error' : 'success'}>${params.value}</Typography>
       ) 
     },
     { 
       field: 'acciones', 
       headerName: 'Contacto', 
-      width: 100, 
+      width: 150,
       renderCell: (params) => {
         const datos = params.row || params;
         return datos.propietario ? (
-          <IconButton color="success" onClick={() => enviarWhatsApp(datos.telefono_propietario, datos.propietario, datos.saldo_pendiente)}>
-            <WhatsAppIcon />
-          </IconButton>
+          <Box>
+              <IconButton color="success" onClick={() => enviarWhatsApp(datos.telefono_propietario, datos.propietario, datos.saldo_pendiente)}><WhatsAppIcon /></IconButton>
+              <IconButton color="primary" onClick={() => handleAbrirEmail(datos.email_propietario, datos.propietario)}><EmailIcon /></IconButton>
+          </Box>
         ) : null;
       }
     }
   ];
 
-  // COLUMNAS USUARIOS (CON EL FIX DEL TELÉFONO)
   const columnasUsuarios = [
     { field: 'id', headerName: 'ID', width: 70 },
     { field: 'first_name', headerName: 'Nombre', width: 200 },
-    // ✅ FIX: Columna Teléfono agregada
     { field: 'telefono', headerName: 'Teléfono', width: 150 }, 
     { field: 'username', headerName: 'Usuario', width: 150 },
     { field: 'rol', headerName: 'Rol', width: 150 },
@@ -219,7 +244,6 @@ function AdminPanel() {
       } catch(e) { enqueueSnackbar("Solo el Super Admin puede crear comunidades.", {variant:'error'}); }
   };
   
-  // ✅ FUNCIÓN NUEVA: ACTUALIZAR CUOTA
   const handleActualizarCuota = async () => {
     if (!fraccSeleccionado) return;
     try {
@@ -302,7 +326,6 @@ function AdminPanel() {
   const abrirModalUsuario = (tipo, u = null) => {
     setTipoUsuario(tipo);
     if (u) {
-      // MODO EDICIÓN
       setIsEditingUser(true);
       setFormUser({
         id: u.id,
@@ -314,17 +337,8 @@ function AdminPanel() {
         casa_id: u.casa || ''
       });
     } else {
-      // MODO CREACIÓN
       setIsEditingUser(false);
-      setFormUser({
-        id: null,
-        username: '',
-        password: '',
-        email: '',
-        nombre: '',
-        telefono: '',
-        casa_id: ''
-      });
+      setFormUser({ id: null, username: '', password: '', email: '', nombre: '', telefono: '', casa_id: '' });
     }
     setOpenUsuario(true);
   };
@@ -358,7 +372,14 @@ function AdminPanel() {
               </FormControl>
               {isSuperUser && <IconButton onClick={()=>setOpenFracc(true)} sx={{ml:1, color:'#4fc3f7'}} title="Crear Nuevo"><AddCircleOutlineIcon/></IconButton>}
           </Box>
-          <Button color="error" variant="contained" size="small" onClick={()=>{localStorage.clear(); navigate('/');}} sx={{ml:2}}>Salir</Button>
+          <Box sx={{ flexGrow: 1 }} />
+          
+          {/* ✅ BOTÓN DE MI PERFIL */}
+          <IconButton onClick={() => navigate('/mi-perfil')} color="inherit" sx={{mr:1}} title="Mi Perfil">
+              <AccountCircleIcon />
+          </IconButton>
+          
+          <Button color="error" variant="contained" size="small" onClick={()=>{localStorage.clear(); navigate('/');}}>Salir</Button>
         </Toolbar>
       </AppBar>
 
@@ -368,16 +389,15 @@ function AdminPanel() {
                 Panel: {fraccionamientos.find(f=>f.id===fraccSeleccionado)?.nombre || "Cargando..."}
             </Typography>
             <Grid container spacing={2}>
-                <Grid size="auto"><Button variant="contained" sx={{ bgcolor: '#4caf50' }} startIcon={<CloudUploadIcon />} onClick={() => setOpenImportar(true)}>Importar</Button></Grid>
-                <Grid size="auto"><Button variant="contained" sx={{ bgcolor: '#2e7d32' }} startIcon={<GroupIcon />} onClick={() => setOpenDirectorio(true)}>Usuarios</Button></Grid>
-                <Grid size="auto"><Button variant="contained" sx={{ bgcolor: '#546e7a' }} startIcon={<AddRoadIcon />} onClick={() => setOpenCalle(true)}>Calles</Button></Grid>
-                <Grid size="auto"><Button variant="contained" color="primary" startIcon={<AddHomeIcon />} onClick={() => setOpenCasa(true)}>Casa</Button></Grid>
-                <Grid size="auto"><Button variant="contained" color="info" startIcon={<PersonAddIcon />} onClick={() => abrirModalUsuario('residente')}>+ Vecino</Button></Grid>
-                <Grid size="auto"><Button variant="contained" sx={{ bgcolor: '#455a64' }} startIcon={<LocalPoliceIcon />} onClick={() => abrirModalUsuario('guardia')}>+ Guardia</Button></Grid>
-                <Grid size={{ xs: 12, md: 'grow' }} sx={{display:{xs:'none', md:'block'}}} />
+                <Grid item xs="auto"><Button variant="contained" sx={{ bgcolor: '#4caf50' }} startIcon={<CloudUploadIcon />} onClick={() => setOpenImportar(true)}>Importar</Button></Grid>
+                <Grid item xs="auto"><Button variant="contained" sx={{ bgcolor: '#2e7d32' }} startIcon={<GroupIcon />} onClick={() => setOpenDirectorio(true)}>Usuarios</Button></Grid>
+                <Grid item xs="auto"><Button variant="contained" sx={{ bgcolor: '#546e7a' }} startIcon={<AddRoadIcon />} onClick={() => setOpenCalle(true)}>Calles</Button></Grid>
+                <Grid item xs="auto"><Button variant="contained" color="primary" startIcon={<AddHomeIcon />} onClick={() => setOpenCasa(true)}>Casa</Button></Grid>
+                <Grid item xs="auto"><Button variant="contained" color="info" startIcon={<PersonAddIcon />} onClick={() => abrirModalUsuario('residente')}>+ Vecino</Button></Grid>
+                <Grid item xs="auto"><Button variant="contained" sx={{ bgcolor: '#455a64' }} startIcon={<LocalPoliceIcon />} onClick={() => abrirModalUsuario('guardia')}>+ Guardia</Button></Grid>
+                <Grid item xs={12} md sx={{display:{xs:'none', md:'block'}}} />
                 
-                {/* ✅ BOTÓN NUEVO: CONFIGURAR CUOTA */}
-                <Grid size="auto">
+                <Grid item xs="auto">
                     <Button 
                         variant="contained" 
                         sx={{ bgcolor: '#2e7d32', color: 'white' }} 
@@ -392,18 +412,18 @@ function AdminPanel() {
                     </Button>
                 </Grid>
 
-                <Grid size="auto"><Button variant="contained" sx={{ bgcolor: '#795548' }} startIcon={<EngineeringIcon />} onClick={() => {setOpenPersonal(true); cargarPersonal();}}>Personal</Button></Grid>
-                <Grid size="auto"><Button variant="contained" sx={{ bgcolor: '#7b1fa2' }} startIcon={<ForumIcon />} onClick={() => navigate('/comunidad')}>Comunidad</Button></Grid>
-                <Grid size="auto"><Button variant="contained" color="warning" startIcon={<AccountBalanceWalletIcon />} onClick={() => {setOpenContabilidad(true); cargarContabilidad();}}>Finanzas</Button></Grid>
-                <Grid size="auto"><Button variant="contained" sx={{ bgcolor: '#00695c' }} startIcon={<StorefrontIcon />} onClick={() => navigate('/directorio')}>Directorio</Button></Grid>
-                <Grid size="auto"><Button variant="contained" sx={{ bgcolor: '#0277bd' }} startIcon={<TrendingUpIcon />} onClick={() => navigate('/reportes')}>Reportes</Button></Grid>
+                <Grid item xs="auto"><Button variant="contained" sx={{ bgcolor: '#795548' }} startIcon={<EngineeringIcon />} onClick={() => {setOpenPersonal(true); cargarPersonal();}}>Personal</Button></Grid>
+                <Grid item xs="auto"><Button variant="contained" sx={{ bgcolor: '#7b1fa2' }} startIcon={<ForumIcon />} onClick={() => navigate('/comunidad')}>Comunidad</Button></Grid>
+                <Grid item xs="auto"><Button variant="contained" color="warning" startIcon={<AccountBalanceWalletIcon />} onClick={() => {setOpenContabilidad(true); cargarContabilidad();}}>Finanzas</Button></Grid>
+                <Grid item xs="auto"><Button variant="contained" sx={{ bgcolor: '#00695c' }} startIcon={<StorefrontIcon />} onClick={() => navigate('/directorio')}>Directorio</Button></Grid>
+                <Grid item xs="auto"><Button variant="contained" sx={{ bgcolor: '#0277bd' }} startIcon={<TrendingUpIcon />} onClick={() => navigate('/reportes')}>Reportes</Button></Grid>
             </Grid>
         </Paper>
 
         <Grid container spacing={3} sx={{ mb: 5 }}>
-          <Grid size={{ xs: 12, md: 4 }}><KpiCard title="Deuda Total" value={`$${stats.deudaTotal.toLocaleString()}`} subtitle="Pendiente" icon={<AttachMoneyIcon />} color="#e53935"/></Grid>
-          <Grid size={{ xs: 12, md: 4 }}><KpiCard title="Morosidad" value={stats.casasConDeuda} subtitle="Casas con deuda" icon={<ReportProblemIcon />} color="#fb8c00"/></Grid>
-          <Grid size={{ xs: 12, md: 4 }}><KpiCard title="Propiedades" value={stats.totalCasas} subtitle="Registradas" icon={<HomeIcon />} color="#1976d2"/></Grid>
+          <Grid item xs={12} md={4}><KpiCard title="Deuda Total" value={`$${stats.deudaTotal.toLocaleString()}`} subtitle="Pendiente" icon={<AttachMoneyIcon />} color="#e53935"/></Grid>
+          <Grid item xs={12} md={4}><KpiCard title="Morosidad" value={stats.casasConDeuda} subtitle="Casas con deuda" icon={<ReportProblemIcon />} color="#fb8c00"/></Grid>
+          <Grid item xs={12} md={4}><KpiCard title="Propiedades" value={stats.totalCasas} subtitle="Registradas" icon={<HomeIcon />} color="#1976d2"/></Grid>
         </Grid>
 
         <Paper sx={{ height: 600, width: '100%', p: 2 }}>
@@ -416,28 +436,28 @@ function AdminPanel() {
       <Dialog open={openFracc} onClose={()=>setOpenFracc(false)}><DialogTitle>Nuevo Fraccionamiento</DialogTitle><DialogContent><TextField autoFocus margin="dense" label="Nombre" fullWidth value={nombreNuevoFracc} onChange={(e)=>setNombreNuevoFracc(e.target.value)} /></DialogContent><DialogActions><Button onClick={()=>setOpenFracc(false)}>Cancelar</Button><Button onClick={handleCrearFraccionamiento} variant="contained">Crear</Button></DialogActions></Dialog>
       <Dialog open={openImportar} onClose={()=>setOpenImportar(false)} fullWidth maxWidth="sm"><DialogTitle sx={{bgcolor:'#4caf50', color:'white'}}>Importar</DialogTitle><DialogContent sx={{mt:2}}><Button startIcon={<DownloadIcon/>} onClick={descargarPlantilla}>Descargar Plantilla</Button><Button component="label" variant="contained" fullWidth startIcon={<UploadFileIcon/>} sx={{mt:2}}>{archivoCSV ? archivoCSV.name : "Subir CSV"}<input type="file" hidden accept=".csv" onChange={(e)=>setArchivoCSV(e.target.files[0])} /></Button>{resultadoImportacion && <Box sx={{mt:2, p:2, bgcolor:'#e8f5e9'}}>{resultadoImportacion.mensaje}</Box>}</DialogContent><DialogActions><Button onClick={()=>setOpenImportar(false)}>Cerrar</Button><Button onClick={handleSubirCSV} variant="contained" color="success" disabled={!archivoCSV}>Procesar</Button></DialogActions></Dialog>
       
-      {/* ✅ MODAL NUEVO: ACTUALIZAR CUOTA */}
       <Dialog open={openCuota} onClose={() => setOpenCuota(false)}>
         <DialogTitle>💲 Cuota de Mantenimiento</DialogTitle>
         <DialogContent>
-            <Typography variant="body2" sx={{ mb: 2, mt: 1 }}>
-            Define el monto mensual oficial para {fraccionamientos.find(f => f.id === fraccSeleccionado)?.nombre}.
-            </Typography>
-            <TextField
-            autoFocus
-            margin="dense"
-            label="Monto Mensual ($)"
-            type="number"
-            fullWidth
-            value={nuevaCuota}
-            onChange={(e) => setNuevaCuota(e.target.value)}
-            />
+            <Typography variant="body2" sx={{ mb: 2, mt: 1 }}>Define el monto mensual oficial.</Typography>
+            <TextField autoFocus margin="dense" label="Monto Mensual ($)" type="number" fullWidth value={nuevaCuota} onChange={(e) => setNuevaCuota(e.target.value)} />
         </DialogContent>
         <DialogActions>
             <Button onClick={() => setOpenCuota(false)}>Cancelar</Button>
-            <Button onClick={handleActualizarCuota} variant="contained" color="success">
-            Actualizar Tarifa
-            </Button>
+            <Button onClick={handleActualizarCuota} variant="contained" color="success">Actualizar Tarifa</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={openEmail} onClose={() => setOpenEmail(false)} fullWidth maxWidth="sm">
+        <DialogTitle>✉️ Enviar Correo a {emailData.nombre}</DialogTitle>
+        <DialogContent>
+            <TextField label="Para" fullWidth margin="dense" value={emailData.para} disabled />
+            <TextField label="Asunto" fullWidth margin="dense" value={emailData.asunto} onChange={(e) => setEmailData({...emailData, asunto: e.target.value})} />
+            <TextField label="Mensaje" fullWidth multiline rows={6} margin="dense" value={emailData.mensaje} onChange={(e) => setEmailData({...emailData, mensaje: e.target.value})} />
+        </DialogContent>
+        <DialogActions>
+            <Button onClick={() => setOpenEmail(false)}>Cancelar</Button>
+            <Button onClick={handleEnviarEmailReal} variant="contained" color="primary" startIcon={<EmailIcon/>}>Enviar</Button>
         </DialogActions>
       </Dialog>
 
@@ -446,33 +466,12 @@ function AdminPanel() {
       <Dialog open={openUsuario} onClose={()=>setOpenUsuario(false)}>
         <DialogTitle>{isEditingUser ? 'Editar Usuario' : 'Nuevo Usuario'}</DialogTitle>
         <DialogContent>
-          <TextField 
-            margin="dense" label="Nombre Completo" fullWidth 
-            value={formUser.nombre} onChange={(e)=>setFormUser({...formUser, nombre:e.target.value})}
-          />
-          <TextField 
-            margin="dense" label="Usuario" fullWidth 
-            value={formUser.username} onChange={(e)=>setFormUser({...formUser, username:e.target.value})}
-            autoComplete="off" inputProps={{ autoComplete: 'off' }} 
-          />
-          <TextField 
-            margin="dense" label={isEditingUser ? "Cambiar Password (Opcional)" : "Password"} type="password" fullWidth 
-            value={formUser.password} onChange={(e)=>setFormUser({...formUser, password:e.target.value})}
-            autoComplete="new-password" inputProps={{ autoComplete: 'new-password' }} 
-          />
+          <TextField margin="dense" label="Nombre Completo" fullWidth value={formUser.nombre} onChange={(e)=>setFormUser({...formUser, nombre:e.target.value})}/>
+          <TextField margin="dense" label="Usuario" fullWidth value={formUser.username} onChange={(e)=>setFormUser({...formUser, username:e.target.value})} autoComplete="off" />
+          <TextField margin="dense" label={isEditingUser ? "Cambiar Password (Opcional)" : "Password"} type="password" fullWidth value={formUser.password} onChange={(e)=>setFormUser({...formUser, password:e.target.value})} autoComplete="new-password" />
           <TextField margin="dense" label="Email" fullWidth value={formUser.email} onChange={(e)=>setFormUser({...formUser, email:e.target.value})}/>
-          
           <TextField margin="dense" label="Teléfono / WhatsApp" fullWidth value={formUser.telefono} onChange={(e)=>setFormUser({...formUser, telefono:e.target.value})}/>
-
-          {tipoUsuario==='residente' && (
-            <FormControl fullWidth margin="dense">
-              <InputLabel>Casa</InputLabel>
-              <Select value={formUser.casa_id} onChange={(e)=>setFormUser({...formUser, casa_id:e.target.value})}>
-                <MenuItem value=""><em>Ninguna</em></MenuItem>
-                {casasFiltradas.map(c=><MenuItem key={c.id} value={c.id}>{c.calle_nombre} #{c.numero_exterior}</MenuItem>)}
-              </Select>
-            </FormControl>
-          )}
+          {tipoUsuario==='residente' && (<FormControl fullWidth margin="dense"><InputLabel>Casa</InputLabel><Select value={formUser.casa_id} onChange={(e)=>setFormUser({...formUser, casa_id:e.target.value})}><MenuItem value=""><em>Ninguna</em></MenuItem>{casasFiltradas.map(c=><MenuItem key={c.id} value={c.id}>{c.calle_nombre} #{c.numero_exterior}</MenuItem>)}</Select></FormControl>)}
         </DialogContent>
         <DialogActions>
           <Button onClick={()=>setOpenUsuario(false)}>Cancelar</Button>

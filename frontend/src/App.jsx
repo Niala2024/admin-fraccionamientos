@@ -2,7 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { CssBaseline } from '@mui/material';
 import { SnackbarProvider } from 'notistack'; // <--- IMPORTANTE
-
+import MiPerfil from './pages/MiPerfil'; // <--- Importar
 // Importación de Páginas
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -22,7 +22,7 @@ function App() {
         {/* --- RUTAS PÚBLICAS Y LOGIN --- */}
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
-
+        <Route path="/mi-perfil" element={<MiPerfil />} />
         {/* --- RUTAS DE RESIDENTE (VECINO) --- */}
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/residente" element={<Dashboard />} /> 

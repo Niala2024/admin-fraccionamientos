@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Container, Typography, Box, Button, Grid, Card, CardContent, AppBar, Toolbar, 
-  Dialog, DialogTitle, DialogContent, TextField, DialogActions, Alert, List, 
+  Dialog, DialogTitle, DialogContent, TextField, DialogActions, List, 
   ListItem, ListItemText, Divider, IconButton, Avatar, Paper, Table, TableBody,
   TableCell, TableContainer, TableHead, TableRow, Chip
 } from '@mui/material';
@@ -40,19 +40,16 @@ function Dashboard() {
   const [openPago, setOpenPago] = useState(false);
   const [openHistorial, setOpenHistorial] = useState(false);
   const [openEmpleados, setOpenEmpleados] = useState(false); 
-  const [openPerfil, setOpenPerfil] = useState(false);
   
   // Formularios
   const [formPago, setFormPago] = useState({ monto: '', fecha: '' });
   const [comprobante, setComprobante] = useState(null);
 
-  // Datos Empleados y Perfil
+  // Datos Empleados
   const [listaEmpleados, setListaEmpleados] = useState([]);
   const [formEmp, setFormEmp] = useState({ nombre: '', telefono: '', direccion: '' });
   const [fotoEmp, setFotoEmp] = useState(null);
   const [imprimirGafete, setImprimirGafete] = useState(null);
-  const [nuevoAvatar, setNuevoAvatar] = useState(null);
-  const [previewAvatar, setPreviewAvatar] = useState(null);
 
   // --- LÓGICA WHATSAPP ---
   const abrirWhatsApp = (telefono, nombre) => {
@@ -125,24 +122,6 @@ function Dashboard() {
       } catch(e) { alert("Error al subir pago"); }
   };
 
-  // --- LÓGICA PERFIL ---
-  const handleFileChange = (e) => {
-      const file = e.target.files[0];
-      if (file) { setNuevoAvatar(file); setPreviewAvatar(URL.createObjectURL(file)); }
-  };
-  const handleGuardarPerfil = async () => {
-      if (!nuevoAvatar) return;
-      const token = localStorage.getItem('token');
-      const formData = new FormData();
-      formData.append('avatar', nuevoAvatar);
-      try {
-          await axios.patch(`http://127.0.0.1:8000/api/usuarios/${userData.id}/`, formData, {
-              headers: { Authorization: `Token ${token}`, 'Content-Type': 'multipart/form-data' }
-          });
-          alert("Foto actualizada"); setOpenPerfil(false); cargarDatos();
-      } catch (e) { alert("Error al subir imagen"); }
-  };
-
   // --- LÓGICA EMPLEADOS ---
   const cargarEmpleados = async () => {
       const token = localStorage.getItem('token');
@@ -199,10 +178,12 @@ function Dashboard() {
           
           <Box sx={{ flexGrow: 1 }} /> 
 
-          <IconButton onClick={() => setOpenPerfil(true)} sx={{ ml: 1, p: 0, border: '2px solid white' }}>
+          {/* ✅ BOTÓN DE PERFIL (Ahora redirige a /mi-perfil) */}
+          <IconButton onClick={() => navigate('/mi-perfil')} sx={{ ml: 1, p: 0, border: '2px solid white' }} title="Ir a Mi Perfil">
             <Avatar src={userData?.avatar} sx={{ width: 40, height: 40 }}>{userData?.username?.[0]}</Avatar>
           </IconButton>
-          <IconButton color="inherit" onClick={handleLogout} sx={{ml:1}}><LogoutIcon /></IconButton>
+          
+          <IconButton color="inherit" onClick={handleLogout} sx={{ml:1}} title="Salir"><LogoutIcon /></IconButton>
         </Toolbar>
       </AppBar>
 
@@ -285,21 +266,6 @@ function Dashboard() {
           <DialogActions><Button onClick={()=>setOpenHistorial(false)}>Cerrar</Button></DialogActions>
       </Dialog>
 
-      {/* --- MODAL PERFIL --- */}
-      <Dialog open={openPerfil} onClose={() => setOpenPerfil(false)} fullWidth maxWidth="xs">
-          <DialogTitle sx={{ textAlign: 'center' }}>Mi Perfil</DialogTitle>
-          <DialogContent>
-              <Box display="flex" flexDirection="column" alignItems="center" gap={2} mt={2}>
-                  <Avatar src={previewAvatar || userData?.avatar} sx={{ width: 100, height: 100, boxShadow: 3 }} />
-                  <Typography variant="h6">{userData?.username}</Typography>
-                  <Button variant="contained" component="label" startIcon={<PhotoCamera />}>Cambiar Foto<input type="file" hidden accept="image/*" onChange={handleFileChange} /></Button>
-              </Box>
-          </DialogContent>
-          <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
-              <Button onClick={handleGuardarPerfil} variant="contained" color="success" disabled={!nuevoAvatar}>Guardar</Button>
-          </DialogActions>
-      </Dialog>
-
       {/* --- MODAL EMPLEADOS --- */}
       <Dialog open={openEmpleados} onClose={()=>setOpenEmpleados(false)} fullWidth maxWidth="md">
           <DialogTitle sx={{bgcolor: '#1976d2', color: 'white'}}>Mis Empleados</DialogTitle>
@@ -341,7 +307,7 @@ function Dashboard() {
           <DialogActions><Button onClick={()=>setOpenEmpleados(false)}>Cerrar</Button></DialogActions>
       </Dialog>
 
-      {/* --- MODAL GAFETE (CORREGIDO) --- */}
+      {/* --- MODAL GAFETE --- */}
       <Dialog open={!!imprimirGafete} onClose={()=>setImprimirGafete(null)}>
           <DialogContent>
               <div id="gafete-print" style={{textAlign:'center', border:'2px solid #000', padding:'20px', borderRadius:'10px', width: '300px', margin:'auto'}}>

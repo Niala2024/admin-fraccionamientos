@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Typography, Box, Button, TextField, AppBar, Toolbar, 
-  Alert, Tabs, Tab, List, ListItem, ListItemText, Divider, Paper, Grid, 
-  Avatar, CardMedia, Card
+  Alert, Tabs, Tab, List, ListItem, ListItemText, Paper, Grid, 
+  Avatar
 } from '@mui/material';
 
 // Iconos
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import BookIcon from '@mui/icons-material/Book';
 import SecurityIcon from '@mui/icons-material/Security';
-import LocalShippingIcon from '@mui/icons-material/LocalShipping'; // Proveedor
+import LocalShippingIcon from '@mui/icons-material/LocalShipping'; 
 import PeopleIcon from '@mui/icons-material/People';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import NoteAddIcon from '@mui/icons-material/NoteAdd';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
-import VideoCameraBackIcon from '@mui/icons-material/VideoCameraBack';
-import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+
+// 1. IMPORTACIÓN CENTRALIZADA (Vital para Railway)
+import api from '../api/axiosConfig';
 import Footer from '../components/Footer';
 
 function Caseta() {
@@ -28,6 +28,9 @@ function Caseta() {
   const [mensaje, setMensaje] = useState(null);
   const [errorScan, setErrorScan] = useState(null);
   
+  // 2. DEFINIR URL BASE PARA LAS IMÁGENES (Nube vs Local)
+  const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+  
   // Datos "Quién está adentro"
   const [genteAdentro, setGenteAdentro] = useState({ trabajadores: [], visitas: [] });
   
@@ -35,7 +38,6 @@ function Caseta() {
   const [formProv, setFormProv] = useState({ nombre: '', empresa: '', placas: '' });
 
   // Bitácora
-  const [notas, setNotas] = useState([]); // Historial local para visualización rápida
   const [nuevaNota, setNuevaNota] = useState("");
   const [fechaBitacora, setFechaBitacora] = useState(new Date().toISOString().slice(0, 16));
   const [archivoBitacora, setArchivoBitacora] = useState(null);
@@ -51,7 +53,8 @@ function Caseta() {
   const cargarGenteAdentro = async () => {
       const token = localStorage.getItem('token');
       try {
-          const res = await axios.get('http://127.0.0.1:8000/api/visitas/activos/', { headers: { Authorization: `Token ${token}` } });
+          // 3. USAR 'api.get' y RUTA RELATIVA
+          const res = await api.get('/api/visitas/activos/', { headers: { Authorization: `Token ${token}` } });
           setGenteAdentro(res.data);
       } catch(e) { console.error(e); }
   };
@@ -68,18 +71,16 @@ function Caseta() {
   const onScanSuccess = async (decodedText) => {
       try {
           const token = localStorage.getItem('token');
-          // Enviar QR al endpoint inteligente
-          const res = await axios.post(`http://127.0.0.1:8000/api/visitas/validar_qr/`, { qr: decodedText }, { headers: { Authorization: `Token ${token}` } });
+          // 4. PETICIÓN POST INTELIGENTE
+          const res = await api.post(`/api/visitas/validar_qr/`, { qr: decodedText }, { headers: { Authorization: `Token ${token}` } });
           
           const { status, nombre, tipo, casa, foto } = res.data;
           
-          // Mensaje bonito con foto si hay
           setMensaje({ texto: `${status}: ${nombre} (${tipo}) ${casa ? '- Casa ' + casa : ''}`, foto: foto });
           
           setErrorScan(null);
-          cargarGenteAdentro(); // Actualizar lista lateral
+          cargarGenteAdentro(); 
           
-          // Limpiar mensaje a los 5 seg
           setTimeout(()=>setMensaje(null), 5000);
       } catch(e) { 
           setErrorScan(e.response?.data?.error || "Error al leer QR");
@@ -93,13 +94,13 @@ function Caseta() {
       if(!formProv.nombre || !formProv.empresa) return alert("Datos incompletos");
       const token = localStorage.getItem('token');
       try {
-          await axios.post('http://127.0.0.1:8000/api/visitas/', {
+          await api.post('/api/visitas/', {
               nombre_visitante: formProv.nombre,
               empresa: formProv.empresa,
               placas: formProv.placas,
               fecha_llegada: new Date(),
               tipo: 'PROVEEDOR',
-              estado: 'INGRESO' // Entra directo
+              estado: 'INGRESO' 
           }, { headers: { Authorization: `Token ${token}` } });
           alert("Proveedor registrado");
           setFormProv({nombre:'', empresa:'', placas:''});
@@ -118,10 +119,9 @@ function Caseta() {
       if (archivoBitacora) formData.append('media', archivoBitacora);
 
       try {
-          await axios.post('http://127.0.0.1:8000/api/bitacora/', formData, { headers: { Authorization: `Token ${token}`, 'Content-Type': 'multipart/form-data' } });
+          await api.post('/api/bitacora/', formData, { headers: { Authorization: `Token ${token}`, 'Content-Type': 'multipart/form-data' } });
           alert("Reporte guardado");
           setNuevaNota(""); setArchivoBitacora(null);
-          // Opcional: Recargar lista de bitácora si la estuvieras mostrando aquí
       } catch(e) { alert("Error"); }
       setLoadingSubida(false);
   };
@@ -138,7 +138,7 @@ function Caseta() {
 
       <Grid container sx={{ flexGrow: 1, p: 2, overflow: 'hidden' }} spacing={2}>
           
-          {/* --- COLUMNA IZQUIERDA: OPERACIONES (ESCÁNER / MANUAL / BITÁCORA) --- */}
+          {/* --- COLUMNA IZQUIERDA --- */}
           <Grid item xs={12} md={8} sx={{height: '100%'}}>
               <Paper elevation={3} sx={{ borderRadius: 2, height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                   <Tabs value={tabIndex} onChange={(e,v)=>setTabIndex(v)} centered variant="fullWidth" sx={{bgcolor: 'white', borderBottom: 1, borderColor: 'divider'}}>
@@ -153,7 +153,8 @@ function Caseta() {
                           <Box textAlign="center">
                               {mensaje && (
                                   <Alert severity="success" sx={{mb:2, fontSize:'1.2rem', alignItems: 'center'}}>
-                                      {mensaje.foto && <Avatar src={`http://127.0.0.1:8000${mensaje.foto}`} sx={{width: 60, height: 60, mr: 2, display:'inline-block', verticalAlign:'middle'}}/>}
+                                      {/* 5. USO DE BASE_URL PARA FOTOS ESCANEADAS */}
+                                      {mensaje.foto && <Avatar src={`${BASE_URL}${mensaje.foto}`} sx={{width: 60, height: 60, mr: 2, display:'inline-block', verticalAlign:'middle'}}/>}
                                       {mensaje.texto}
                                   </Alert>
                               )}
@@ -199,7 +200,7 @@ function Caseta() {
               </Paper>
           </Grid>
 
-          {/* --- COLUMNA DERECHA: MONITOREO TIEMPO REAL --- */}
+          {/* --- COLUMNA DERECHA --- */}
           <Grid item xs={12} md={4} sx={{height: '100%'}}>
               <Paper elevation={3} sx={{ height: '100%', borderRadius: 2, bgcolor: '#37474f', color: 'white', display:'flex', flexDirection:'column' }}>
                   <Box p={2} borderBottom={1} borderColor="rgba(255,255,255,0.1)" sx={{bgcolor: '#263238'}}>
@@ -216,7 +217,8 @@ function Caseta() {
                       <List dense>
                           {genteAdentro.trabajadores.map(t => (
                               <ListItem key={t.id} sx={{bgcolor:'rgba(255,255,255,0.1)', mb:1, borderRadius:1}}>
-                                  <Avatar src={t.foto ? `http://127.0.0.1:8000${t.foto}` : null} sx={{width:40, height:40, mr:2}}/>
+                                  {/* 6. USO DE BASE_URL PARA FOTOS DE LISTA */}
+                                  <Avatar src={t.foto ? `${BASE_URL}${t.foto}` : null} sx={{width:40, height:40, mr:2}}/>
                                   <ListItemText 
                                       primary={<Typography variant="body1" fontWeight="bold">{t.nombre}</Typography>} 
                                       secondary={<span style={{color:'#cfd8dc'}}>🏠 Casa {t.casa}</span>} 

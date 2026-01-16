@@ -49,8 +49,8 @@ function Login() {
       console.error("Error de acceso:", e);
       setLoading(false);
       
-      // Mensajes de error amigables para el usuario
-      if (e.response && e.response.status === 400) {
+      // AHORA ACEPTAMOS 400 Y 401 COMO CREDENCIALES INCORRECTAS
+      if (e.response && (e.response.status === 400 || e.response.status === 401)) {
         setError('Usuario o contraseña incorrectos.');
       } else if (e.message === "Network Error") {
         setError('No hay conexión con el servidor. Intenta más tarde.');

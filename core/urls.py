@@ -4,10 +4,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
 
-# --- NUEVOS IMPORTS NECESARIOS PARA LA LLAVE MAESTRA ---
+# --- CORRECCIÓN IMPORTANTE ---
 from django.http import HttpResponse
-from django.contrib.auth.models import User
-# -------------------------------------------------------
+from django.contrib.auth import get_user_model # <--- Usamos esto para obtener TU usuario real
 
 from usuarios.views import UsuarioViewSet, CustomAuthToken
 from inmuebles.views import FraccionamientoViewSet, CasaViewSet, CalleViewSet
@@ -15,43 +14,40 @@ from finanzas.views import PagoViewSet, TipoEgresoViewSet, EgresoViewSet, Report
 from seguridad.views import VisitaViewSet, BitacoraViewSet, TrabajadorViewSet, AccesoTrabajadorViewSet, ReporteAccesosView
 from comunidad.views import EncuestaViewSet, PublicacionViewSet, QuejaViewSet, AvisoViewSet
 
-# --- FUNCIÓN DE EMERGENCIA (LLAVE MAESTRA) ---
+# --- FUNCIÓN DE EMERGENCIA CORREGIDA ---
 def crear_superusuario_forzoso(request):
+    User = get_user_model() # <--- Aquí Django nos da 'usuarios.Usuario' automáticamente
     try:
         # Verifica si el usuario 'master' ya existe
         if User.objects.filter(username='master').exists():
             usuario = User.objects.get(username='master')
-            usuario.set_password('Zebra571@')  # Restablece la contraseña a la fuerza
+            usuario.set_password('Zebra571@')
             usuario.is_superuser = True
             usuario.is_staff = True
             usuario.save()
             mensaje = "<h1>✅ ACTUALIZADO</h1><p>El usuario 'master' ya existía. Se ha reseteado su contraseña a: Zebra571@</p>"
         else:
-            # Si no existe, lo crea desde cero
+            # Si no existe, lo crea
             User.objects.create_superuser('master', 'admin@admin.com', 'Zebra571@')
             mensaje = "<h1>✅ CREADO</h1><p>Usuario 'master' creado exitosamente con contraseña: Zebra571@</p>"
             
         return HttpResponse(f"{mensaje}<br><a href='/admin/' style='font-size:20px'>👉 IR AL LOGIN DE ADMIN</a>")
     except Exception as e:
-        return HttpResponse(f"<h1>❌ ERROR</h1><p>{str(e)}</p>")
-# ---------------------------------------------
+        return HttpResponse(f"<h1>❌ ERROR DETALLADO</h1><p>{str(e)}</p>")
+# ---------------------------------------
 
 router = DefaultRouter()
-# CORRECCIÓN: Agregamos basename
 router.register(r'fraccionamientos', FraccionamientoViewSet, basename='fraccionamiento')
-
 router.register(r'usuarios', UsuarioViewSet)
 router.register(r'casas', CasaViewSet)
 router.register(r'calles', CalleViewSet)
 router.register(r'pagos', PagoViewSet)
 router.register(r'tipos-egresos', TipoEgresoViewSet)
 router.register(r'egresos', EgresoViewSet)
-
 router.register(r'visitas', VisitaViewSet, basename='visita')
 router.register(r'trabajadores', TrabajadorViewSet, basename='trabajador')
 router.register(r'accesos-trabajadores', AccesoTrabajadorViewSet, basename='acceso_trabajador')
 router.register(r'bitacora', BitacoraViewSet)
-
 router.register(r'encuestas', EncuestaViewSet)
 router.register(r'foro', PublicacionViewSet)
 router.register(r'quejas', QuejaViewSet, basename='queja')
@@ -64,7 +60,7 @@ urlpatterns = [
     path('api/generar-reporte/', ReporteFinancieroView.as_view(), name='generar_reporte'),
     path('api/reporte-accesos/', ReporteAccesosView.as_view(), name='reporte_accesos'),
 
-    # --- RUTA MÁGICA PARA ACTIVAR EL USUARIO ---
+    # Ruta mágica
     path('activar-admin/', crear_superusuario_forzoso),
 ]
 

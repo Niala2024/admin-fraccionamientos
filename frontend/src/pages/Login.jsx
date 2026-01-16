@@ -6,7 +6,7 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/axiosConfig';
+// Nota: Ya no importamos 'api' aquí para evitar que ensucie la petición
 
 function Login() {
   const navigate = useNavigate();
@@ -15,156 +15,101 @@ function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Obtenemos la URL de la variable de entorno de forma segura
+  const API_URL = import.meta.env.VITE_API_URL || 'https://web-production-619e0.up.railway.app';
+
   const handleLogin = async () => {
     setError('');
     setLoading(true);
-    localStorage.removeItem('token'); 
-    localStorage.removeItem('rol');
+
+    // 1. LIMPIEZA TOTAL (Borrar cualquier rastro anterior)
+    localStorage.clear(); 
+
     try {
-     
-      // 1. Petición al servidor
-      const res = await api.post('/api-token-auth/', form);
-      // 2. Guardar credenciales
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('rol', res.data.rol);
-      localStorage.setItem('user_data', JSON.stringify(res.data)); 
-      const res = await api.post('/api-token-auth/', form);
-      // 3. Análisis inteligente de redirección
-      const data = res.data;
+      console.log("Intentando conectar a:", `${API_URL}/api-token-auth/`);
+
+      // 2. USAMOS FETCH (El método que SÍ funcionó en tu consola)
+      const response = await fetch(`${API_URL}/api-token-auth/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Importante: NO enviamos Authorization aquí, vamos limpios
+        },
+        body: JSON.stringify(form)
+      });
+
+      // 3. Revisamos si el servidor nos rechazó
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('CREDENCIALES_INVALIDAS');
+      }
+
+      if (!response.ok) {
+        throw new Error('ERROR_RED');
+      }
+
+      // 4. Si pasamos, convertimos la respuesta a JSON
+      const data = await response.json();
+      console.log("Login Exitoso:", data);
+
+      // 5. Guardamos los datos nuevos
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('rol', data.rol);
+      localStorage.setItem('user_data', JSON.stringify(data)); 
+
+      // 6. Redirección Inteligente
       const rol = data.rol ? data.rol.toLowerCase() : '';
       const usuario = data.username ? data.username.toLowerCase() : '';
 
-      // Regla de Oro: Superusuarios y Admins al Panel Principal
       if (usuario === 'master' || data.is_superuser || rol.includes('admin') || rol.includes('seguridad')) {
           navigate('/admin-panel');
-      } 
-      // Guardias a su caseta
-      else if (rol.includes('guardia')) {
+      } else if (rol.includes('guardia')) {
           navigate('/caseta');
-      } 
-      // Residentes a su dashboard
-      else {
+      } else {
           navigate('/dashboard');
       }
 
     } catch (e) {
-      console.error("Error de acceso:", e);
+      console.error("Error Login:", e);
       setLoading(false);
       
-      // AHORA ACEPTAMOS 400 Y 401 COMO CREDENCIALES INCORRECTAS
-      if (e.response && (e.response.status === 400 || e.response.status === 401)) {
+      if (e.message === 'CREDENCIALES_INVALIDAS') {
         setError('Usuario o contraseña incorrectos.');
-      } else if (e.message === "Network Error") {
-        setError('No hay conexión con el servidor. Intenta más tarde.');
       } else {
-        setError('Ocurrió un error inesperado. Verifica tu conexión.');
+        setError('Error de conexión. Verifica que el servidor esté activo.');
       }
     }
   };
 
-  // Permitir entrar con la tecla ENTER
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') handleLogin();
   };
 
   return (
-    <Box sx={{ 
-      height: '100vh', 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center', 
-      bgcolor: '#f0f2f5', // Un gris muy suave y moderno
-      backgroundImage: 'linear-gradient(135deg, #f0f2f5 0%, #e3f2fd 100%)' 
-    }}>
+    <Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#f0f2f5', backgroundImage: 'linear-gradient(135deg, #f0f2f5 0%, #e3f2fd 100%)' }}>
       <CssBaseline />
       <Container maxWidth="xs">
-        <Paper 
-          elevation={6} 
-          sx={{ 
-            p: 5, 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            borderRadius: 4,
-            transition: 'transform 0.2s',
-            '&:hover': { transform: 'scale(1.01)' } // Efecto sutil al pasar el mouse
-          }}
-        >
+        <Paper elevation={6} sx={{ p: 5, display: 'flex', flexDirection: 'column', alignItems: 'center', borderRadius: 4 }}>
           <Avatar sx={{ m: 1, bgcolor: '#1976d2', width: 60, height: 60, mb: 2 }}>
             <LockOutlinedIcon fontSize="large" />
           </Avatar>
-          
           <Typography component="h1" variant="h5" fontWeight="700" color="#1976d2" sx={{ mb: 1 }}>
             Bienvenido
           </Typography>
-          
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Ingresa tus credenciales para continuar
+            Ingresa tus credenciales (Fetch Nativo)
           </Typography>
 
           <Box component="div" sx={{ width: '100%' }}>
-            {error && (
-              <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
-                {error}
-              </Alert>
-            )}
+            {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
             
-            <TextField 
-              margin="normal" 
-              required 
-              fullWidth 
-              label="Usuario" 
-              autoFocus 
-              value={form.username} 
-              onChange={(e) => setForm({ ...form, username: e.target.value })} 
-              onKeyPress={handleKeyPress}
-              sx={{ mb: 2 }}
-            />
+            <TextField margin="normal" required fullWidth label="Usuario" autoFocus value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} onKeyPress={handleKeyPress} sx={{ mb: 2 }} />
+            <TextField margin="normal" required fullWidth label="Contraseña" type={showPassword ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} onKeyPress={handleKeyPress} InputProps={{ endAdornment: (<InputAdornment position="end"><IconButton onClick={() => setShowPassword(!showPassword)} edge="end">{showPassword ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment>), }} />
             
-            <TextField 
-              margin="normal" 
-              required 
-              fullWidth 
-              label="Contraseña" 
-              type={showPassword ? 'text' : 'password'} 
-              value={form.password} 
-              onChange={(e) => setForm({ ...form, password: e.target.value })} 
-              onKeyPress={handleKeyPress}
-              InputProps={{ 
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ), 
-              }} 
-            />
-            
-            <Button 
-              fullWidth 
-              variant="contained" 
-              size="large"
-              disabled={loading}
-              sx={{ 
-                mt: 4, 
-                mb: 2, 
-                py: 1.5, 
-                fontSize: '1rem', 
-                fontWeight: 'bold',
-                borderRadius: 2,
-                textTransform: 'none',
-                boxShadow: 2
-              }} 
-              onClick={handleLogin}
-            >
-              {loading ? 'Ingresando...' : 'Iniciar Sesión'}
+            <Button fullWidth variant="contained" size="large" disabled={loading} sx={{ mt: 4, mb: 2, py: 1.5, fontSize: '1rem', fontWeight: 'bold' }} onClick={handleLogin}>
+              {loading ? 'Verificando...' : 'Iniciar Sesión'}
             </Button>
           </Box>
         </Paper>
-        <Typography variant="caption" display="block" color="text.secondary" align="center" sx={{ mt: 4 }}>
-          © 2026 Sistema de Administración de Fraccionamientos
-        </Typography>
       </Container>
     </Box>
   );

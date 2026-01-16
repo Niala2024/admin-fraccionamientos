@@ -37,16 +37,16 @@ function Login() {
       }
 
     } catch (e) {
-      console.error("Error de Login:", e);
-      // Si el servidor responde con un mensaje de error específico, úsalo
-      if (e.response && e.response.data) {
-          setError('Credenciales inválidas'); // El servidor rechazó la contraseña
-      } else if (e.message === "Network Error") {
-          setError('Error de conexión: No se alcanza el servidor'); // Backend apagado o URL mal
+      console.error("Error completo:", e);
+      if (e.response) {
+      // El servidor respondió, mostramos EXACTAMENTE qué dijo
+        setError(`Servidor dice: ${JSON.stringify(e.response.data)}`);
+      } else if (e.request) {
+        setError('Error: El servidor no responde (revisa VITE_API_URL)');
       } else {
-          setError('Ocurrió un error inesperado');
+        setError(`Error desconocido: ${e.message}`);
       }
-    }
+   }
   };
 
   return (

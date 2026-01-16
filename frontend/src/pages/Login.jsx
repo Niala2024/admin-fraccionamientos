@@ -37,8 +37,15 @@ function Login() {
       }
 
     } catch (e) {
-      setError('Usuario o contraseña incorrectos');
-      console.error(e);
+      console.error("Error de Login:", e);
+      // Si el servidor responde con un mensaje de error específico, úsalo
+      if (e.response && e.response.data) {
+          setError('Credenciales inválidas'); // El servidor rechazó la contraseña
+      } else if (e.message === "Network Error") {
+          setError('Error de conexión: No se alcanza el servidor'); // Backend apagado o URL mal
+      } else {
+          setError('Ocurrió un error inesperado');
+      }
     }
   };
 

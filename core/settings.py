@@ -127,3 +127,12 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50
 }
+# --- CORRECCIÓN FINAL PARA RAILWAY (CSRF 403) ---
+# Esto le dice a Django que confíe en cualquier dirección de Railway
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.railway.app",
+    "https://*.up.railway.app",
+]
+
+# Esto le dice a Django que aunque Railway maneje HTTPS, nosotros estamos listos
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

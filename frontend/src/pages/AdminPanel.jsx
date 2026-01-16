@@ -42,11 +42,12 @@ function AdminPanel() {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar(); 
   
+  // INICIALIZACIÓN SEGURA DE ESTADOS (Arrays vacíos)
   const [fraccionamientos, setFraccionamientos] = useState([]);
   const [fraccSeleccionado, setFraccSeleccionado] = useState(''); 
   const [isSuperUser, setIsSuperUser] = useState(false);
 
-  const [casas, setCasas] = useState([]);
+  const [casas, setCasas] = useState([]); 
   const [calles, setCalles] = useState([]);
   const [usuarios, setUsuarios] = useState([]); 
   const [loading, setLoading] = useState(true);
@@ -102,7 +103,7 @@ function AdminPanel() {
 
       const headers = { 'Authorization': `Token ${token}` };
       
-      // USAMOS API.GET
+      // CARGAR FRACCIONAMIENTOS
       const resFracc = await api.get('/api/fraccionamientos/', { headers });
       const listaFracc = resFracc.data.results || resFracc.data;
       setFraccionamientos(Array.isArray(listaFracc) ? listaFracc : []);
@@ -114,26 +115,47 @@ function AdminPanel() {
           else if(listaFracc.length > 0) setFraccSeleccionado(listaFracc[0].id);
       }
 
+      // CARGA SIMULTÁNEA DE DATOS
       const [resCasas, resCalles, resUsers] = await Promise.all([
           api.get('/api/casas/', { headers }),
           api.get('/api/calles/', { headers }),
           api.get('/api/usuarios/', { headers })
       ]);
       
-      setCasas(resCasas.data.results || resCasas.data);
-      setCalles(resCalles.data.results || resCalles.data);
-      setUsuarios(resUsers.data.results || resUsers.data);
+      // Validación extra para evitar undefined
+      const dataCasas = resCasas.data.results || resCasas.data;
+      setCasas(Array.isArray(dataCasas) ? dataCasas : []);
+
+      const dataCalles = resCalles.data.results || resCalles.data;
+      setCalles(Array.isArray(dataCalles) ? dataCalles : []);
+
+      const dataUsers = resUsers.data.results || resUsers.data;
+      setUsuarios(Array.isArray(dataUsers) ? dataUsers : []);
       
       setLoading(false);
-    } catch (e) { if(e.response?.status===401) navigate('/'); }
+    } catch (e) { 
+        // --- MEJORA UX: ALERTA DE SESIÓN EXPIRADA ---
+        if(e.response?.status===401) {
+            enqueueSnackbar("Tu sesión ha expirado por seguridad. Ingresa nuevamente.", { variant: 'warning', autoHideDuration: 3000 });
+            localStorage.clear();
+            // Pequeña pausa para que el usuario lea el mensaje
+            setTimeout(() => navigate('/'), 1500);
+        } else {
+            console.error("Error cargando datos:", e);
+        }
+        setLoading(false);
+    }
   };
 
   useEffect(() => { cargarDatos(); }, [navigate]);
 
-  const casasFiltradas = casas.filter(c => !fraccSeleccionado || c.fraccionamiento === fraccSeleccionado);
+  // --- BLINDAJE CONTRA PANTALLA BLANCA ---
+  // Validamos que 'casas' sea un array antes de usar .filter
+  const listaCasasSegura = Array.isArray(casas) ? casas : [];
+  const casasFiltradas = listaCasasSegura.filter(c => !fraccSeleccionado || c.fraccionamiento === fraccSeleccionado);
   
   useEffect(() => {
-      const deuda = casasFiltradas.reduce((acc, c) => acc + parseFloat(c.saldo_pendiente), 0);
+      const deuda = casasFiltradas.reduce((acc, c) => acc + parseFloat(c.saldo_pendiente || 0), 0);
       const morosos = casasFiltradas.filter(c => c.saldo_pendiente > 0).length;
       setStats({ deudaTotal: deuda, casasConDeuda: morosos, totalCasas: casasFiltradas.length });
   }, [casas, fraccSeleccionado]);
@@ -141,7 +163,7 @@ function AdminPanel() {
   const columnasCasas = [
     { field: 'calle_nombre', headerName: 'Calle', width: 150 },
     { field: 'numero_exterior', headerName: 'Número', width: 100 },
-    { field: 'propietario', headerName: 'Propietario', width: 200, valueGetter: (value, row) => row?.propietario || '-- Vacante --' },
+    { field: 'propietario', headerName: 'Propietario', width: 200, valueGetter: (params) => params.row?.propietario || '-- Vacante --' },
     { field: 'saldo_pendiente', headerName: 'Saldo', width: 130, renderCell: (params) => (<Typography fontWeight="bold" color={params.value > 0 ? 'error' : 'success'}>${params.value}</Typography>) },
     { field: 'acciones', headerName: 'Contacto', width: 100, renderCell: (params) => (params.row.propietario ? (<IconButton color="success" onClick={() => enviarWhatsApp(params.row.telefono_propietario, params.row.propietario, params.row.saldo_pendiente)}><WhatsAppIcon /></IconButton>) : null) }
   ];

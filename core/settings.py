@@ -12,14 +12,12 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- SEGURIDAD ---
-# 1. SECRET_KEY: Lee del .env, si no existe usa una por defecto (solo para dev)
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default-para-local')
 
-# 2. DEBUG: Lee del .env. Solo será True si escribes DEBUG=True en el archivo.
-# Por seguridad, si no encuentra la variable, asume False.
+# 2. DEBUG: Lee del .env.
 DEBUG = os.getenv('DEBUG') == 'True'
 
-# 3. ALLOWED_HOSTS: Permitir todo para que Railway no bloquee (CORREGIDO)
+# 3. ALLOWED_HOSTS: Permitir todo para que Railway no bloquee
 ALLOWED_HOSTS = ["*"]
 
 
@@ -76,7 +74,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 # --- BASE DE DATOS ---
-# Usa la del .env (DATABASE_URL) si existe (Prod), si no usa SQLite (Local)
 DATABASES = {
     'default': dj_database_url.config(
         default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
@@ -105,6 +102,11 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+# --- CONFIGURACIÓN DE SUBIDA (PREVIENE ERRORES CON FOTOS GRANDES) ---
+# Permitir hasta 10MB por archivo (Ideal para fotos de celular modernos)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760 
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760
+
 # --- EMAIL (CONFIGURACIÓN GMAIL) ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
@@ -115,7 +117,6 @@ EMAIL_HOST_PASSWORD = 'bnkmjgctfxxwvbhw'
 DEFAULT_FROM_EMAIL = 'Administración Fraccionamiento <mision.country.dgo@gmail.com>'
 
 # --- CORS (Conexión Frontend-Backend) ---
-# En desarrollo permitimos todo. En producción, deberías poner aquí la URL de Vercel/Netlify.
 CORS_ALLOW_ALL_ORIGINS = True 
 
 REST_FRAMEWORK = {
@@ -123,16 +124,14 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
-    # Opcional: Paginación global para que no colapse con muchos datos
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50
 }
-# --- CORRECCIÓN FINAL PARA RAILWAY (CSRF 403) ---
-# Esto le dice a Django que confíe en cualquier dirección de Railway
+
+# --- CORRECCIÓN PARA RAILWAY (CSRF) ---
 CSRF_TRUSTED_ORIGINS = [
     "https://*.railway.app",
     "https://*.up.railway.app",
 ]
 
-# Esto le dice a Django que aunque Railway maneje HTTPS, nosotros estamos listos
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

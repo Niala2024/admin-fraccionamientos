@@ -6,7 +6,7 @@ from rest_framework.routers import DefaultRouter
 
 # --- CORRECCIÓN CLAVE ---
 from django.http import HttpResponse
-from django.contrib.auth import get_user_model  # <--- Esto obtiene TU usuario personalizado (usuarios.Usuario)
+from django.contrib.auth import get_user_model
 
 from usuarios.views import UsuarioViewSet, CustomAuthToken
 from inmuebles.views import FraccionamientoViewSet, CasaViewSet, CalleViewSet
@@ -14,22 +14,18 @@ from finanzas.views import PagoViewSet, TipoEgresoViewSet, EgresoViewSet, Report
 from seguridad.views import VisitaViewSet, BitacoraViewSet, TrabajadorViewSet, AccesoTrabajadorViewSet, ReporteAccesosView
 from comunidad.views import EncuestaViewSet, PublicacionViewSet, QuejaViewSet, AvisoViewSet
 
-# --- FUNCIÓN DE EMERGENCIA (VERSIÓN COMPATIBLE CON USUARIO PERSONALIZADO) ---
+# --- FUNCIÓN DE EMERGENCIA ---
 def crear_superusuario_forzoso(request):
-    User = get_user_model()  # <--- Aquí obtenemos la clase 'usuarios.Usuario' automáticamente
+    User = get_user_model() 
     try:
-        # Verifica si el usuario 'master' ya existe
         if User.objects.filter(username='master').exists():
             usuario = User.objects.get(username='master')
-            usuario.set_password('Zebra571@')  # Restablece contraseña
+            usuario.set_password('Zebra571@')
             usuario.is_superuser = True
             usuario.is_staff = True
             usuario.save()
             mensaje = "<h1>✅ ACTUALIZADO</h1><p>El usuario 'master' ya existía. Contraseña reseteada a: Zebra571@</p>"
         else:
-            # Crea el superusuario usando tu modelo personalizado
-            # Nota: Algunos modelos personalizados requieren campos extra. 
-            # Si falla, intenta llenar esos campos (ej: email, nombre).
             User.objects.create_superuser(username='master', email='admin@admin.com', password='Zebra571@')
             mensaje = "<h1>✅ CREADO</h1><p>Usuario 'master' creado exitosamente. <br>Usuario: master<br>Pass: Zebra571@</p>"
             
@@ -66,5 +62,6 @@ urlpatterns = [
     path('activar-admin/', crear_superusuario_forzoso),
 ]
 
+# ESTO ASEGURA QUE VEAS LAS FOTOS EN LOCAL (DEBUG=True)
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

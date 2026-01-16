@@ -4,9 +4,9 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
 
-# --- CORRECCIÓN IMPORTANTE ---
+# --- CORRECCIÓN CLAVE ---
 from django.http import HttpResponse
-from django.contrib.auth import get_user_model # <--- Usamos esto para obtener TU usuario real
+from django.contrib.auth import get_user_model  # <--- Esto obtiene TU usuario personalizado (usuarios.Usuario)
 
 from usuarios.views import UsuarioViewSet, CustomAuthToken
 from inmuebles.views import FraccionamientoViewSet, CasaViewSet, CalleViewSet
@@ -14,27 +14,29 @@ from finanzas.views import PagoViewSet, TipoEgresoViewSet, EgresoViewSet, Report
 from seguridad.views import VisitaViewSet, BitacoraViewSet, TrabajadorViewSet, AccesoTrabajadorViewSet, ReporteAccesosView
 from comunidad.views import EncuestaViewSet, PublicacionViewSet, QuejaViewSet, AvisoViewSet
 
-# --- FUNCIÓN DE EMERGENCIA CORREGIDA ---
+# --- FUNCIÓN DE EMERGENCIA (VERSIÓN COMPATIBLE CON USUARIO PERSONALIZADO) ---
 def crear_superusuario_forzoso(request):
-    User = get_user_model() # <--- Aquí Django nos da 'usuarios.Usuario' automáticamente
+    User = get_user_model()  # <--- Aquí obtenemos la clase 'usuarios.Usuario' automáticamente
     try:
         # Verifica si el usuario 'master' ya existe
         if User.objects.filter(username='master').exists():
             usuario = User.objects.get(username='master')
-            usuario.set_password('Zebra571@')
+            usuario.set_password('Zebra571@')  # Restablece contraseña
             usuario.is_superuser = True
             usuario.is_staff = True
             usuario.save()
-            mensaje = "<h1>✅ ACTUALIZADO</h1><p>El usuario 'master' ya existía. Se ha reseteado su contraseña a: Zebra571@</p>"
+            mensaje = "<h1>✅ ACTUALIZADO</h1><p>El usuario 'master' ya existía. Contraseña reseteada a: Zebra571@</p>"
         else:
-            # Si no existe, lo crea
-            User.objects.create_superuser('master', 'admin@admin.com', 'Zebra571@')
-            mensaje = "<h1>✅ CREADO</h1><p>Usuario 'master' creado exitosamente con contraseña: Zebra571@</p>"
+            # Crea el superusuario usando tu modelo personalizado
+            # Nota: Algunos modelos personalizados requieren campos extra. 
+            # Si falla, intenta llenar esos campos (ej: email, nombre).
+            User.objects.create_superuser(username='master', email='admin@admin.com', password='Zebra571@')
+            mensaje = "<h1>✅ CREADO</h1><p>Usuario 'master' creado exitosamente. <br>Usuario: master<br>Pass: Zebra571@</p>"
             
-        return HttpResponse(f"{mensaje}<br><a href='/admin/' style='font-size:20px'>👉 IR AL LOGIN DE ADMIN</a>")
+        return HttpResponse(f"{mensaje}<br><br><a href='/admin/' style='font-size:24px; font-weight:bold;'>👉 IR AL LOGIN</a>")
     except Exception as e:
-        return HttpResponse(f"<h1>❌ ERROR DETALLADO</h1><p>{str(e)}</p>")
-# ---------------------------------------
+        return HttpResponse(f"<h1>❌ ERROR</h1><p>No se pudo crear el usuario. Detalles:</p><pre>{str(e)}</pre>")
+# ----------------------------------------------------------------------------
 
 router = DefaultRouter()
 router.register(r'fraccionamientos', FraccionamientoViewSet, basename='fraccionamiento')
@@ -60,7 +62,7 @@ urlpatterns = [
     path('api/generar-reporte/', ReporteFinancieroView.as_view(), name='generar_reporte'),
     path('api/reporte-accesos/', ReporteAccesosView.as_view(), name='reporte_accesos'),
 
-    # Ruta mágica
+    # RUTA DE EMERGENCIA
     path('activar-admin/', crear_superusuario_forzoso),
 ]
 

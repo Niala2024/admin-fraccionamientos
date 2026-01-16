@@ -33,6 +33,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline'; 
 import DomainIcon from '@mui/icons-material/Domain'; 
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn'; // Icono para el botón de cuota
 
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axiosConfig'; 
@@ -63,6 +64,10 @@ function AdminPanel() {
   const [openCalle, setOpenCalle] = useState(false);
   const [openPersonal, setOpenPersonal] = useState(false);
   const [openImportar, setOpenImportar] = useState(false); 
+  
+  // ✅ NUEVOS ESTADOS PARA LA CUOTA
+  const [openCuota, setOpenCuota] = useState(false);
+  const [nuevaCuota, setNuevaCuota] = useState('');
 
   const [archivoCSV, setArchivoCSV] = useState(null);
   const [resultadoImportacion, setResultadoImportacion] = useState(null);
@@ -213,6 +218,22 @@ function AdminPanel() {
           enqueueSnackbar("Fraccionamiento creado", {variant:'success'}); setNombreNuevoFracc(''); setOpenFracc(false); cargarDatos();
       } catch(e) { enqueueSnackbar("Solo el Super Admin puede crear comunidades.", {variant:'error'}); }
   };
+  
+  // ✅ FUNCIÓN NUEVA: ACTUALIZAR CUOTA
+  const handleActualizarCuota = async () => {
+    if (!fraccSeleccionado) return;
+    try {
+      await api.patch(`/api/fraccionamientos/${fraccSeleccionado}/`, {
+        cuota_mensual: nuevaCuota
+      }, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` }});
+      
+      enqueueSnackbar("Cuota actualizada correctamente", { variant: 'success' });
+      setOpenCuota(false);
+      cargarDatos();
+    } catch (error) {
+      enqueueSnackbar("Error al actualizar la cuota", { variant: 'error' });
+    }
+  };
 
   const cargarPersonal = async () => { 
       try { const res = await api.get('/api/trabajadores/', { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } }); setListaTrabajadores(res.data.results || res.data); } catch(e){} 
@@ -354,6 +375,23 @@ function AdminPanel() {
                 <Grid size="auto"><Button variant="contained" color="info" startIcon={<PersonAddIcon />} onClick={() => abrirModalUsuario('residente')}>+ Vecino</Button></Grid>
                 <Grid size="auto"><Button variant="contained" sx={{ bgcolor: '#455a64' }} startIcon={<LocalPoliceIcon />} onClick={() => abrirModalUsuario('guardia')}>+ Guardia</Button></Grid>
                 <Grid size={{ xs: 12, md: 'grow' }} sx={{display:{xs:'none', md:'block'}}} />
+                
+                {/* ✅ BOTÓN NUEVO: CONFIGURAR CUOTA */}
+                <Grid size="auto">
+                    <Button 
+                        variant="contained" 
+                        sx={{ bgcolor: '#2e7d32', color: 'white' }} 
+                        startIcon={<MonetizationOnIcon />} 
+                        onClick={() => {
+                            const actual = fraccionamientos.find(f => f.id === fraccSeleccionado)?.cuota_mensual || 0;
+                            setNuevaCuota(actual);
+                            setOpenCuota(true);
+                        }}
+                    >
+                        Cuota Mensual
+                    </Button>
+                </Grid>
+
                 <Grid size="auto"><Button variant="contained" sx={{ bgcolor: '#795548' }} startIcon={<EngineeringIcon />} onClick={() => {setOpenPersonal(true); cargarPersonal();}}>Personal</Button></Grid>
                 <Grid size="auto"><Button variant="contained" sx={{ bgcolor: '#7b1fa2' }} startIcon={<ForumIcon />} onClick={() => navigate('/comunidad')}>Comunidad</Button></Grid>
                 <Grid size="auto"><Button variant="contained" color="warning" startIcon={<AccountBalanceWalletIcon />} onClick={() => {setOpenContabilidad(true); cargarContabilidad();}}>Finanzas</Button></Grid>
@@ -378,6 +416,31 @@ function AdminPanel() {
       <Dialog open={openFracc} onClose={()=>setOpenFracc(false)}><DialogTitle>Nuevo Fraccionamiento</DialogTitle><DialogContent><TextField autoFocus margin="dense" label="Nombre" fullWidth value={nombreNuevoFracc} onChange={(e)=>setNombreNuevoFracc(e.target.value)} /></DialogContent><DialogActions><Button onClick={()=>setOpenFracc(false)}>Cancelar</Button><Button onClick={handleCrearFraccionamiento} variant="contained">Crear</Button></DialogActions></Dialog>
       <Dialog open={openImportar} onClose={()=>setOpenImportar(false)} fullWidth maxWidth="sm"><DialogTitle sx={{bgcolor:'#4caf50', color:'white'}}>Importar</DialogTitle><DialogContent sx={{mt:2}}><Button startIcon={<DownloadIcon/>} onClick={descargarPlantilla}>Descargar Plantilla</Button><Button component="label" variant="contained" fullWidth startIcon={<UploadFileIcon/>} sx={{mt:2}}>{archivoCSV ? archivoCSV.name : "Subir CSV"}<input type="file" hidden accept=".csv" onChange={(e)=>setArchivoCSV(e.target.files[0])} /></Button>{resultadoImportacion && <Box sx={{mt:2, p:2, bgcolor:'#e8f5e9'}}>{resultadoImportacion.mensaje}</Box>}</DialogContent><DialogActions><Button onClick={()=>setOpenImportar(false)}>Cerrar</Button><Button onClick={handleSubirCSV} variant="contained" color="success" disabled={!archivoCSV}>Procesar</Button></DialogActions></Dialog>
       
+      {/* ✅ MODAL NUEVO: ACTUALIZAR CUOTA */}
+      <Dialog open={openCuota} onClose={() => setOpenCuota(false)}>
+        <DialogTitle>💲 Cuota de Mantenimiento</DialogTitle>
+        <DialogContent>
+            <Typography variant="body2" sx={{ mb: 2, mt: 1 }}>
+            Define el monto mensual oficial para {fraccionamientos.find(f => f.id === fraccSeleccionado)?.nombre}.
+            </Typography>
+            <TextField
+            autoFocus
+            margin="dense"
+            label="Monto Mensual ($)"
+            type="number"
+            fullWidth
+            value={nuevaCuota}
+            onChange={(e) => setNuevaCuota(e.target.value)}
+            />
+        </DialogContent>
+        <DialogActions>
+            <Button onClick={() => setOpenCuota(false)}>Cancelar</Button>
+            <Button onClick={handleActualizarCuota} variant="contained" color="success">
+            Actualizar Tarifa
+            </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={openDirectorio} onClose={() => setOpenDirectorio(false)} fullWidth maxWidth="lg"><DialogTitle sx={{bgcolor: '#2e7d32', color: 'white'}}>Directorio de Usuarios</DialogTitle><DialogContent><Tabs value={tabDirectorio} onChange={(e,v)=>setTabDirectorio(v)} centered sx={{mb:2}}><Tab label="Residentes" /><Tab label="Guardias / Staff" /></Tabs><Box sx={{ height: 400, width: '100%' }}><DataGrid rows={usuarios.filter(u => tabDirectorio === 0 ? (!u.rol || u.rol.toLowerCase().includes('residente')) : (u.rol && u.rol.toLowerCase().includes('guardia')))} columns={columnasUsuarios} pageSize={5} /></Box></DialogContent><DialogActions><Button onClick={() => setOpenDirectorio(false)}>Cerrar</Button></DialogActions></Dialog>
       
       <Dialog open={openUsuario} onClose={()=>setOpenUsuario(false)}>

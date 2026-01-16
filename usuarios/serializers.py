@@ -10,20 +10,22 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'password', 'rol', 'telefono', 'casa', 'casa_id', 'avatar']
+        # ✅ CORRECCIÓN: Agregamos 'first_name' y 'last_name' para que se guarden
+        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'password', 'rol', 'telefono', 'casa', 'casa_id', 'avatar']
+        
         # 'required': False es vital para poder editar el usuario sin obligar a cambiar su password
         extra_kwargs = {'password': {'write_only': True, 'required': False}}
 
     def create(self, validated_data):
         casa_id = validated_data.pop('casa_id', None)
-        password = validated_data.pop('password', None) # Usamos None para evitar error si falta
+        password = validated_data.pop('password', None) 
         
         user = User(**validated_data)
         if password:
             user.set_password(password) # Encriptar contraseña
         user.save()
 
-        # Tu lógica original para asignar casa
+        # Asignar casa si se envió
         if casa_id:
             try:
                 casa = Casa.objects.get(id=casa_id)
@@ -36,31 +38,33 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
         return user
 
-    # --- NUEVO MÉTODO: UPDATE ---
-    # Este era el que faltaba para que al editar NO se rompa el login
     def update(self, instance, validated_data):
         casa_id = validated_data.pop('casa_id', None)
         password = validated_data.pop('password', None)
 
-        # 1. Actualizar campos normales (email, telefono, etc.)
+        # 1. Actualizar campos normales (Ahora INCLUYE first_name gracias a la corrección arriba)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
 
-        # 2. Si se envió una nueva contraseña, la encriptamos.
-        # Si no se envió, se mantiene la anterior intacta.
+        # 2. Si se envió contraseña nueva, la encriptamos
         if password:
             instance.set_password(password)
 
         instance.save()
 
-        # 3. Lógica para actualizar la casa al editar (Igual que en create)
-        if casa_id:
+        # 3. Lógica para actualizar la casa
+        if casa_id is not None: # Verifica explícitamente si enviaron un ID (aunque sea 0 o null)
             try:
-                casa = Casa.objects.get(id=casa_id)
-                instance.casa = casa
+                if casa_id:
+                    casa = Casa.objects.get(id=casa_id)
+                    instance.casa = casa
+                    # Opcional: Si quieres que sea el nuevo propietario
+                    # casa.propietario = instance 
+                    # casa.save()
+                else:
+                    # Si mandaron null o vacío, desvinculamos
+                    instance.casa = None
                 instance.save()
-                casa.propietario = instance
-                casa.save()
             except Casa.DoesNotExist:
                 pass
         

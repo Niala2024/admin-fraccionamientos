@@ -9,6 +9,9 @@ class Fraccionamiento(models.Model):
     titulo_header = models.CharField(max_length=150, default="Bienvenidos a nuestra Comunidad")
     imagen_portada = models.ImageField(upload_to='fraccionamiento/', blank=True, null=True)
 
+    # ✅ NUEVO CAMPO: La cuota mensual oficial
+    cuota_mensual = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+
     def __str__(self):
         return self.nombre
 

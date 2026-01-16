@@ -21,7 +21,7 @@ function Login() {
       const res = await api.post('/api-token-auth/', form);
       
       console.log("Respuesta del servidor:", res.data); // Para depuración
-
+      alert(JSON.stringify(res.data));
       // Guardar datos en el navegador
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('rol', res.data.rol);

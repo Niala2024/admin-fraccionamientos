@@ -4,7 +4,7 @@ Django settings for core project.
 from pathlib import Path
 import os
 import dj_database_url
-from dotenv import load_dotenv  # <--- IMPORTANTE: Para leer el archivo .env
+from dotenv import load_dotenv
 
 # Cargar variables de entorno desde el archivo .env (si existe)
 load_dotenv()
@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'seguridad',
     'finanzas',
     'comunidad',
+    'servicios', # <--- ✅ NUEVA APP AGREGADA AQUÍ
 ]
 
 AUTH_USER_MODEL = 'usuarios.Usuario'

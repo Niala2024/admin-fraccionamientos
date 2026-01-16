@@ -3,7 +3,7 @@ import {
   Container, Grid, Typography, Box, Button, Card, CardContent, AppBar, Toolbar, 
   IconButton, TextField, Dialog, DialogTitle, DialogContent, DialogActions, 
   Chip, FormControl, InputLabel, Select, MenuItem, Rating, CardMedia, Divider,
-  Paper // <--- ¡ESTE FALTABA!
+  Paper 
 } from '@mui/material';
 
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -36,20 +36,32 @@ function Directorio() {
   const [filtroCat, setFiltroCat] = useState('TODOS');
   const [busqueda, setBusqueda] = useState('');
   
-  // Modal Nuevo
   const [openNuevo, setOpenNuevo] = useState(false);
   const [form, setForm] = useState({ nombre: '', categoria: 'PLOMERIA', telefono: '', descripcion: '' });
   const [foto, setFoto] = useState(null);
 
-  // Datos Usuario
-  const rol = localStorage.getItem('rol') || '';
+  // ✅ CORRECCIÓN DE NAVEGACIÓN:
+  // Leemos el objeto completo del usuario para ver si es Superusuario
+  const userDataStr = localStorage.getItem('user_data');
+  const userData = userDataStr ? JSON.parse(userDataStr) : {};
+  
+  // Eres admin si: Tienes la bandera is_superuser, is_staff O si tu rol dice 'admin'
+  const soyAdmin = userData.is_superuser === true || userData.is_staff === true || (userData.rol && userData.rol.toLowerCase().includes('admin'));
 
   const cargarDatos = async () => {
     const token = localStorage.getItem('token');
+    const url = window.location.hostname === 'localhost' 
+        ? 'http://127.0.0.1:8000/api/servicios/' 
+        : 'https://web-production-619e0.up.railway.app/api/servicios/';
+
     try {
-        const res = await axios.get('http://127.0.0.1:8000/api/servicios/', { headers: { Authorization: `Token ${token}` } });
-        setServicios(res.data);
-    } catch(e) { console.error(e); }
+        const res = await axios.get(url, { headers: { Authorization: `Token ${token}` } });
+        const datosRecibidos = res.data.results || res.data;
+        setServicios(Array.isArray(datosRecibidos) ? datosRecibidos : []);
+    } catch(e) { 
+        console.error("Error cargando servicios:", e);
+        setServicios([]); 
+    }
   };
 
   useEffect(() => { cargarDatos(); }, []);
@@ -61,12 +73,18 @@ function Directorio() {
       Object.keys(form).forEach(key => formData.append(key, form[key]));
       if(foto) formData.append('foto', foto);
 
+      const url = window.location.hostname === 'localhost' 
+        ? 'http://127.0.0.1:8000/api/servicios/' 
+        : 'https://web-production-619e0.up.railway.app/api/servicios/';
+
       try {
-          await axios.post('http://127.0.0.1:8000/api/servicios/', formData, { 
+          await axios.post(url, formData, { 
               headers: { Authorization: `Token ${token}`, 'Content-Type': 'multipart/form-data' } 
           });
           alert("Proveedor agregado exitosamente");
-          setOpenNuevo(false); setForm({ nombre: '', categoria: 'PLOMERIA', telefono: '', descripcion: '' }); setFoto(null);
+          setOpenNuevo(false); 
+          setForm({ nombre: '', categoria: 'PLOMERIA', telefono: '', descripcion: '' }); 
+          setFoto(null);
           cargarDatos();
       } catch(e) { alert("Error al guardar"); }
   };
@@ -74,9 +92,13 @@ function Directorio() {
   const handleCalificar = async (id, newValue) => {
       if(!newValue) return;
       const token = localStorage.getItem('token');
+      const url = window.location.hostname === 'localhost' 
+        ? `http://127.0.0.1:8000/api/servicios/${id}/calificar/` 
+        : `https://web-production-619e0.up.railway.app/api/servicios/${id}/calificar/`;
+
       try {
-          await axios.post(`http://127.0.0.1:8000/api/servicios/${id}/calificar/`, { estrellas: newValue }, { headers: { Authorization: `Token ${token}` } });
-          cargarDatos(); // Recargar para ver el nuevo promedio
+          await axios.post(url, { estrellas: newValue }, { headers: { Authorization: `Token ${token}` } });
+          cargarDatos(); 
       } catch(e) { alert("Error al calificar"); }
   };
 
@@ -87,9 +109,11 @@ function Directorio() {
       window.open(`https://wa.me/${num}?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
-  const filtrados = servicios.filter(s => {
+  const listaSegura = Array.isArray(servicios) ? servicios : [];
+
+  const filtrados = listaSegura.filter(s => {
       const matchCat = filtroCat === 'TODOS' ? true : s.categoria === filtroCat;
-      const matchText = s.nombre.toLowerCase().includes(busqueda.toLowerCase()) || s.descripcion.toLowerCase().includes(busqueda.toLowerCase());
+      const matchText = s.nombre.toLowerCase().includes(busqueda.toLowerCase()) || (s.descripcion && s.descripcion.toLowerCase().includes(busqueda.toLowerCase()));
       return matchCat && matchText;
   });
 
@@ -97,7 +121,11 @@ function Directorio() {
     <Box sx={{ flexGrow: 1, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
       <AppBar position="static" sx={{ bgcolor: '#00695c' }}>
         <Toolbar>
-          <IconButton edge="start" color="inherit" onClick={() => navigate(rol.toLowerCase().includes('admin') ? '/admin-panel' : '/dashboard')} sx={{ mr: 2 }}><ArrowBackIcon /></IconButton>
+          {/* ✅ AQUÍ USAMOS LA VARIABLE 'soyAdmin' CORREGIDA */}
+          <IconButton edge="start" color="inherit" onClick={() => navigate(soyAdmin ? '/admin-panel' : '/dashboard')} sx={{ mr: 2 }}>
+            <ArrowBackIcon />
+          </IconButton>
+          
           <Typography variant="h6" sx={{ flexGrow: 1 }}>Directorio de Servicios</Typography>
           <Button color="inherit" variant="outlined" onClick={() => setOpenNuevo(true)} startIcon={<AddIcon />}>Sugerir Nuevo</Button>
         </Toolbar>
@@ -108,10 +136,10 @@ function Directorio() {
         {/* FILTROS */}
         <Paper sx={{ p: 2, mb: 3 }}>
             <Grid container spacing={2} alignItems="center">
-                <Grid item xs={12} md={4}>
+                <Grid size={{ xs: 12, md: 4 }}>
                     <TextField fullWidth size="small" placeholder="Buscar (ej. Juan, Fuga...)" InputProps={{startAdornment: <SearchIcon color="action" sx={{mr:1}}/>}} value={busqueda} onChange={(e)=>setBusqueda(e.target.value)} />
                 </Grid>
-                <Grid item xs={12} md={8}>
+                <Grid size={{ xs: 12, md: 8 }}>
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                         {CATEGORIAS.slice(0, 6).map(cat => (
                             <Chip 
@@ -130,8 +158,15 @@ function Directorio() {
 
         {/* LISTADO */}
         <Grid container spacing={3}>
-            {filtrados.map(s => (
-                <Grid item xs={12} md={6} lg={4} key={s.id}>
+            {filtrados.length === 0 ? (
+                <Grid size={{ xs: 12 }}>
+                    <Box textAlign="center" py={5} color="text.secondary">
+                        <Typography variant="h6">No hay servicios registrados aún.</Typography>
+                        <Typography variant="body2">¡Sé el primero en recomendar a alguien!</Typography>
+                    </Box>
+                </Grid>
+            ) : filtrados.map(s => (
+                <Grid size={{ xs: 12, md: 6, lg: 4 }} key={s.id}>
                     <Card sx={{ display: 'flex', flexDirection: 'column', height: '100%', borderRadius: 3, position: 'relative' }}>
                         {s.foto ? (
                             <CardMedia component="img" height="140" image={s.foto} alt={s.nombre} />

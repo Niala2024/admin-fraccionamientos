@@ -4,15 +4,18 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
 
-# --- CORRECCIÓN CLAVE ---
 from django.http import HttpResponse
 from django.contrib.auth import get_user_model
 
+# Importamos las vistas de tus apps
 from usuarios.views import UsuarioViewSet, CustomAuthToken
 from inmuebles.views import FraccionamientoViewSet, CasaViewSet, CalleViewSet
 from finanzas.views import PagoViewSet, TipoEgresoViewSet, EgresoViewSet, ReporteFinancieroView
 from seguridad.views import VisitaViewSet, BitacoraViewSet, TrabajadorViewSet, AccesoTrabajadorViewSet, ReporteAccesosView
 from comunidad.views import EncuestaViewSet, PublicacionViewSet, QuejaViewSet, AvisoViewSet
+
+# ✅ NUEVO IMPORT PARA SERVICIOS
+from servicios.views import ServicioViewSet
 
 # --- FUNCIÓN DE EMERGENCIA ---
 def crear_superusuario_forzoso(request):
@@ -50,6 +53,9 @@ router.register(r'encuestas', EncuestaViewSet)
 router.register(r'foro', PublicacionViewSet)
 router.register(r'quejas', QuejaViewSet, basename='queja')
 router.register(r'avisos', AvisoViewSet)
+
+# ✅ REGISTRAR LA RUTA DE SERVICIOS
+router.register(r'servicios', ServicioViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),

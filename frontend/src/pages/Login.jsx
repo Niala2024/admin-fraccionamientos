@@ -1,113 +1,114 @@
 import React, { useState } from 'react';
 import { 
-  Container, Paper, Typography, TextField, Button, Box, Avatar, Alert, InputAdornment, IconButton, CssBaseline 
+  Container, Paper, TextField, Button, Typography, Box, InputAdornment, IconButton 
 } from '@mui/material';
-import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
-import Visibility from '@mui/icons-material/Visibility';
-import VisibilityOff from '@mui/icons-material/VisibilityOff';
+import { Visibility, VisibilityOff, Login as LoginIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-// Nota: Ya no importamos 'api' aquí para evitar que ensucie la petición
+import { useSnackbar } from 'notistack';
+import api from '../api/axiosConfig'; // <--- IMPORTANTE: Usamos la config centralizada
 
 function Login() {
-  const navigate = useNavigate();
-  const [form, setForm] = useState({ username: '', password: '' });
-  const [error, setError] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
 
-  // Obtenemos la URL de la variable de entorno de forma segura
-  const API_URL = import.meta.env.VITE_API_URL || 'https://web-production-619e0.up.railway.app';
-
-  const handleLogin = async () => {
-    setError('');
+  const handleLogin = async (e) => {
+    e.preventDefault();
     setLoading(true);
 
-    // 1. LIMPIEZA TOTAL (Borrar cualquier rastro anterior)
-    localStorage.clear(); 
-
     try {
-      console.log("Intentando conectar a:", `${API_URL}/api-token-auth/`);
-
-      // 2. USAMOS FETCH (El método que SÍ funcionó en tu consola)
-      const response = await fetch(`${API_URL}/api-token-auth/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // Importante: NO enviamos Authorization aquí, vamos limpios
-        },
-        body: JSON.stringify(form)
+      // Usamos 'api' en lugar de axios directo. 
+      // Esto tomará automáticamente la URL http://127.0.0.1:8000 que definimos antes.
+      const response = await api.post('/api-token-auth/', { 
+        username, 
+        password 
       });
 
-      // 3. Revisamos si el servidor nos rechazó
-      if (response.status === 401 || response.status === 403) {
-        throw new Error('CREDENCIALES_INVALIDAS');
-      }
+      // Si llegamos aquí, el login fue exitoso en LOCAL
+      const { token, user_id, username: user, is_superuser, ...rest } = response.data;
 
-      if (!response.ok) {
-        throw new Error('ERROR_RED');
-      }
+      // Guardamos la llave LOCAL
+      localStorage.setItem('token', token);
+      localStorage.setItem('user_data', JSON.stringify({ 
+        user_id, 
+        username: user, 
+        is_superuser,
+        ...rest 
+      }));
 
-      // 4. Si pasamos, convertimos la respuesta a JSON
-      const data = await response.json();
-      console.log("Login Exitoso:", data);
+      enqueueSnackbar(`Bienvenido ${user}`, { variant: 'success' });
+      navigate('/admin-panel');
 
-      // 5. Guardamos los datos nuevos
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('rol', data.rol);
-      localStorage.setItem('user_data', JSON.stringify(data)); 
-
-      // 6. Redirección Inteligente
-      const rol = data.rol ? data.rol.toLowerCase() : '';
-      const usuario = data.username ? data.username.toLowerCase() : '';
-
-      if (usuario === 'master' || data.is_superuser || rol.includes('admin') || rol.includes('seguridad')) {
-          navigate('/admin-panel');
-      } else if (rol.includes('guardia')) {
-          navigate('/caseta');
+    } catch (error) {
+      console.error("Login error:", error);
+      // Mensajes de error amigables
+      if (error.code === "ERR_NETWORK") {
+        enqueueSnackbar("No se encuentra el servidor local (Django). ¿Está prendido?", { variant: 'error' });
+      } else if (error.response?.status === 400) {
+        enqueueSnackbar("Usuario o contraseña incorrectos", { variant: 'error' });
       } else {
-          navigate('/dashboard');
+        enqueueSnackbar("Error al iniciar sesión. Revisa la consola.", { variant: 'error' });
       }
-
-    } catch (e) {
-      console.error("Error Login:", e);
+    } finally {
       setLoading(false);
-      
-      if (e.message === 'CREDENCIALES_INVALIDAS') {
-        setError('Usuario o contraseña incorrectos.');
-      } else {
-        setError('Error de conexión. Verifica que el servidor esté activo.');
-      }
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter') handleLogin();
-  };
-
   return (
-    <Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#f0f2f5', backgroundImage: 'linear-gradient(135deg, #f0f2f5 0%, #e3f2fd 100%)' }}>
-      <CssBaseline />
-      <Container maxWidth="xs">
-        <Paper elevation={6} sx={{ p: 5, display: 'flex', flexDirection: 'column', alignItems: 'center', borderRadius: 4 }}>
-          <Avatar sx={{ m: 1, bgcolor: '#1976d2', width: 60, height: 60, mb: 2 }}>
-            <LockOutlinedIcon fontSize="large" />
-          </Avatar>
-          <Typography component="h1" variant="h5" fontWeight="700" color="#1976d2" sx={{ mb: 1 }}>
-            Bienvenido
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Ingresa tus credenciales (Fetch Nativo)
+    <Box sx={{ 
+      minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+      bgcolor: '#e3f2fd', // Un color de fondo suave
+      backgroundImage: 'radial-gradient(#90caf9 1px, transparent 1px)',
+      backgroundSize: '20px 20px'
+    }}>
+      <Container component="main" maxWidth="xs">
+        <Paper elevation={6} sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', borderRadius: 3 }}>
+          
+          <Box sx={{ p: 2, bgcolor: '#1976d2', borderRadius: '50%', mb: 2 }}>
+            <LoginIcon sx={{ color: 'white', fontSize: 32 }} />
+          </Box>
+          
+          <Typography component="h1" variant="h5" sx={{ mb: 3, fontWeight: 'bold', color: '#1565c0' }}>
+            Acceso Administrativo
           </Typography>
 
-          <Box component="div" sx={{ width: '100%' }}>
-            {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+          <Box component="form" onSubmit={handleLogin} sx={{ mt: 1, width: '100%' }}>
+            <TextField
+              margin="normal" required fullWidth label="Usuario" autoFocus
+              value={username} onChange={(e) => setUsername(e.target.value)}
+              disabled={loading}
+            />
+            <TextField
+              margin="normal" required fullWidth label="Contraseña"
+              type={showPassword ? 'text' : 'password'}
+              value={password} onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
             
-            <TextField margin="normal" required fullWidth label="Usuario" autoFocus value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} onKeyPress={handleKeyPress} sx={{ mb: 2 }} />
-            <TextField margin="normal" required fullWidth label="Contraseña" type={showPassword ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} onKeyPress={handleKeyPress} InputProps={{ endAdornment: (<InputAdornment position="end"><IconButton onClick={() => setShowPassword(!showPassword)} edge="end">{showPassword ? <VisibilityOff /> : <Visibility />}</IconButton></InputAdornment>), }} />
-            
-            <Button fullWidth variant="contained" size="large" disabled={loading} sx={{ mt: 4, mb: 2, py: 1.5, fontSize: '1rem', fontWeight: 'bold' }} onClick={handleLogin}>
-              {loading ? 'Verificando...' : 'Iniciar Sesión'}
+            <Button
+              type="submit" fullWidth variant="contained" size="large"
+              sx={{ mt: 3, mb: 2, bgcolor: '#1565c0', py: 1.5 }}
+              disabled={loading}
+            >
+              {loading ? 'Entrando...' : 'Ingresar'}
             </Button>
+            
+            <Typography variant="caption" display="block" align="center" color="text.secondary">
+              Sistema Local v1.0
+            </Typography>
           </Box>
         </Paper>
       </Container>

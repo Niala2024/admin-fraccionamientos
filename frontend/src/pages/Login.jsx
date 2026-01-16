@@ -18,15 +18,17 @@ function Login() {
   const handleLogin = async () => {
     setError('');
     setLoading(true);
+    localStorage.removeItem('token'); 
+    localStorage.removeItem('rol');
     try {
+     
       // 1. Petición al servidor
       const res = await api.post('/api-token-auth/', form);
-      
       // 2. Guardar credenciales
       localStorage.setItem('token', res.data.token);
       localStorage.setItem('rol', res.data.rol);
       localStorage.setItem('user_data', JSON.stringify(res.data)); 
-
+      const res = await api.post('/api-token-auth/', form);
       // 3. Análisis inteligente de redirección
       const data = res.data;
       const rol = data.rol ? data.rol.toLowerCase() : '';

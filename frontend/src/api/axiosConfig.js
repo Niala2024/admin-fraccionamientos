@@ -1,27 +1,26 @@
 import axios from 'axios';
 
-// 1. Detectar la URL base dinámicamente
-// Si existe la variable de entorno (Railway), usa esa. Si no, usa localhost.
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-
+// Creamos la conexión base usando la variable que configuramos en Railway
 const api = axios.create({
-    baseURL: BASE_URL,
-    headers: {
-        'Content-Type': 'application/json',
-    }
+  baseURL: import.meta.env.VITE_API_URL, 
 });
 
-// 2. Interceptor (Opcional pero recomendado)
-// Si ya hay un token guardado, lo agrega a todas las peticiones automáticamente
+// --- INTERCEPTOR (El filtro de seguridad) ---
 api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Token ${token}`;
-        }
-        return config;
-    },
-    (error) => Promise.reject(error)
+  (config) => {
+    const token = localStorage.getItem('token');
+    
+    // REGLA DE ORO: Solo agregamos el token si existe Y si NO estamos intentando loguearnos.
+    // Si vamos a '/api-token-auth/', vamos "limpios" sin token.
+    if (token && !config.url.includes('api-token-auth')) {
+      config.headers.Authorization = `Token ${token}`;
+    }
+    
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
 );
 
 export default api;

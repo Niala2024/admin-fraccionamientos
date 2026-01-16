@@ -91,13 +91,12 @@ class CustomAuthToken(ObtainAuthToken):
         user = serializer.validated_data['user']
         token, created = Token.objects.get_or_create(user=user)
         
-        fracc_id = user.fraccionamiento_administrado.id if user.fraccionamiento_administrado else None
-
         return Response({
             'token': token.key,
             'user_id': user.pk,
+            'username': user.username,
             'email': user.email,
-            'rol': user.rol,
-            'is_superuser': user.is_superuser,
-            'fraccionamiento_id': fracc_id
+            'rol': user.rol, # Asegúrate de que tu modelo Usuario tenga este campo
+            'is_superuser': user.is_superuser, # <--- ¡ESTA ES LA LÍNEA CLAVE! 🔑
+            'is_staff': user.is_staff
         })

@@ -19,7 +19,7 @@ function Reportes() {
   const [tabIndex, setTabIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   
-  // Datos generales
+  // Datos generales (Inicializados como Arrays vacíos para seguridad)
   const [pagos, setPagos] = useState([]);
   const [egresos, setEgresos] = useState([]);
   const [casas, setCasas] = useState([]);
@@ -39,35 +39,55 @@ function Reportes() {
   const cargarDatos = async () => {
       const token = localStorage.getItem('token');
       if (!token) return;
+      
+      // Ajustamos URL según entorno
+      const baseUrl = window.location.hostname === 'localhost' 
+        ? 'http://127.0.0.1:8000/api' 
+        : 'https://web-production-619e0.up.railway.app/api';
+
       const config = { headers: { 'Authorization': `Token ${token}` }};
+      
       try {
         const [resPagos, resEgresos, resCasas, resUsuarios] = await Promise.all([
-            axios.get('http://127.0.0.1:8000/api/pagos/?estado=APROBADO', config), // Solo lo aprobado cuenta
-            axios.get('http://127.0.0.1:8000/api/egresos/', config),
-            axios.get('http://127.0.0.1:8000/api/casas/', config),
-            axios.get('http://127.0.0.1:8000/api/usuarios/', config)
+            axios.get(`${baseUrl}/pagos/?estado=APROBADO`, config),
+            axios.get(`${baseUrl}/egresos/`, config),
+            axios.get(`${baseUrl}/casas/`, config),
+            axios.get(`${baseUrl}/usuarios/`, config)
         ]);
-        setPagos(resPagos.data);
-        setEgresos(resEgresos.data);
-        setCasas(resCasas.data);
-        setUsuarios(resUsuarios.data);
+        
+        // ✅ CORRECCIÓN ANTI-PANTALLA BLANCA:
+        // Verificamos si Django envió paginación (.results) o lista directa.
+        const datosPagos = resPagos.data.results || resPagos.data;
+        const datosEgresos = resEgresos.data.results || resEgresos.data;
+        const datosCasas = resCasas.data.results || resCasas.data;
+        const datosUsuarios = resUsuarios.data.results || resUsuarios.data;
 
-        // Calcular totales globales (histórico)
-        setTotalIngresos(resPagos.data.reduce((acc, p) => acc + parseFloat(p.monto), 0));
-        setTotalEgresos(resEgresos.data.reduce((acc, e) => acc + parseFloat(e.monto), 0));
-      } catch (error) { console.error(error); }
+        setPagos(Array.isArray(datosPagos) ? datosPagos : []);
+        setEgresos(Array.isArray(datosEgresos) ? datosEgresos : []);
+        setCasas(Array.isArray(datosCasas) ? datosCasas : []);
+        setUsuarios(Array.isArray(datosUsuarios) ? datosUsuarios : []);
+
+        // Calcular totales usando los datos ya limpios
+        const safePagos = Array.isArray(datosPagos) ? datosPagos : [];
+        const safeEgresos = Array.isArray(datosEgresos) ? datosEgresos : [];
+
+        setTotalIngresos(safePagos.reduce((acc, p) => acc + parseFloat(p.monto || 0), 0));
+        setTotalEgresos(safeEgresos.reduce((acc, e) => acc + parseFloat(e.monto || 0), 0));
+
+      } catch (error) { console.error("Error cargando reportes:", error); }
   };
 
   // --- LÓGICA DE REPORTES PDF/EMAIL ---
   const handleDescargarPDF = async () => {
       if(!fechaInicio || !fechaFin) return alert("Selecciona las fechas");
       const token = localStorage.getItem('token');
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://127.0.0.1:8000/api' : 'https://web-production-619e0.up.railway.app/api';
+      
       try {
-          const response = await axios.get(`http://127.0.0.1:8000/api/generar-reporte/?inicio=${fechaInicio}&fin=${fechaFin}`, {
+          const response = await axios.get(`${baseUrl}/generar-reporte/?inicio=${fechaInicio}&fin=${fechaFin}`, {
               headers: { 'Authorization': `Token ${token}` },
-              responseType: 'blob' // Importante para descargar archivos
+              responseType: 'blob' 
           });
-          // Crear link fantasma para descargar
           const url = window.URL.createObjectURL(new Blob([response.data]));
           const link = document.createElement('a');
           link.href = url;
@@ -83,8 +103,10 @@ function Reportes() {
       
       setLoading(true);
       const token = localStorage.getItem('token');
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://127.0.0.1:8000/api' : 'https://web-production-619e0.up.railway.app/api';
+
       try {
-          const res = await axios.post('http://127.0.0.1:8000/api/generar-reporte/', {
+          const res = await axios.post(`${baseUrl}/generar-reporte/`, {
               inicio: fechaInicio,
               fin: fechaFin,
               destinatarios: destinatarios
@@ -110,7 +132,7 @@ function Reportes() {
 
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4, flexGrow: 1 }}>
         
-        {/* PESTAÑA 0: GENERADOR (LO NUEVO) */}
+        {/* PESTAÑA 0: GENERADOR */}
         {tabIndex === 0 && (
             <Paper sx={{ p: 4, textAlign: 'center' }}>
                 <Typography variant="h5" gutterBottom color="primary">Generar y Enviar Estado Financiero</Typography>
@@ -130,7 +152,6 @@ function Reportes() {
                             <InputLabel>Enviar a:</InputLabel>
                             <Select value={destinatarios} label="Enviar a:" onChange={(e)=>setDestinatarios(e.target.value)}>
                                 <MenuItem value="todos">Todos los Vecinos Activos</MenuItem>
-                                {/* Aquí podrías mapear vecinos individuales si quisieras */}
                             </Select>
                         </FormControl>
                     </Grid>
@@ -170,7 +191,6 @@ function Reportes() {
                         </Paper>
                     </Grid>
                 </Grid>
-                {/* ... Tablas de resumen anteriores ... */}
             </Box>
         )}
 
@@ -181,6 +201,7 @@ function Reportes() {
                 <TableContainer component={Paper} sx={{ mb: 4 }}>
                     <Table size="small">
                         <TableHead sx={{bgcolor:'#eee'}}><TableRow><TableCell>Calle</TableCell><TableCell>Número</TableCell><TableCell>Propietario</TableCell><TableCell align="right">Deuda</TableCell></TableRow></TableHead>
+                        {/* ✅ AHORA 'casas' SIEMPRE ES UN ARRAY, NO TRUENA EL MAP */}
                         <TableBody>{casas.map((c) => (<TableRow key={c.id}><TableCell>{c.calle_nombre}</TableCell><TableCell>{c.numero_exterior}</TableCell><TableCell>{c.propietario || "VACANTE"}</TableCell><TableCell align="right" sx={{color: c.saldo_pendiente > 0 ? 'red' : 'black'}}>${c.saldo_pendiente}</TableCell></TableRow>))}</TableBody>
                     </Table>
                 </TableContainer>

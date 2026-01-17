@@ -1,125 +1,162 @@
 from rest_framework import viewsets, status
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.views import APIView
 from django.http import HttpResponse
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.utils import timezone
 from django.db.models import Q
 
-# Importaciones Correctas de Modelos
-from .models import Visita, Bitacora, AccesoTrabajador, Trabajador
-from .serializers import VisitaSerializer, BitacoraSerializer, AccesoTrabajadorSerializer, TrabajadorSerializer
+# Importaciones para PDF
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
 
-# Importación de la utilidad PDF
-from .utils import generar_pdf_accesos
+from .models import Visita, Trabajador, AccesoTrabajador, Bitacora, ReporteDiario
+from .serializers import (
+    VisitaSerializer, TrabajadorSerializer, AccesoTrabajadorSerializer, 
+    BitacoraSerializer, ReporteDiarioSerializer
+)
 
-class VisitaViewSet(viewsets.ModelViewSet):
-    serializer_class = VisitaSerializer
-    
+# --- 1. REPORTE DIARIO (NOVEDADES) ---
+class ReporteDiarioViewSet(viewsets.ModelViewSet):
+    queryset = ReporteDiario.objects.all().order_by('-fecha')
+    serializer_class = ReporteDiarioSerializer
+
     def get_queryset(self):
-        qs = Visita.objects.all().order_by('-fecha_llegada')
+        # Mostramos los últimos 50 mensajes para el feed
+        return super().get_queryset()[:50]
+
+    def perform_create(self, serializer):
+        serializer.save(guardia=self.request.user)
+
+# --- 2. ACCESOS Y ESCÁNER ---
+class AccesoTrabajadorViewSet(viewsets.ModelViewSet):
+    queryset = AccesoTrabajador.objects.all()
+    serializer_class = AccesoTrabajadorSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
         inicio = self.request.query_params.get('inicio')
         fin = self.request.query_params.get('fin')
         
         if inicio and fin:
-            qs = qs.filter(fecha_llegada__range=[inicio, f"{fin} 23:59:59"])
-        
-        user = self.request.user
-        if user.rol in ['guardia', 'Seguridad', 'admin', 'Administrador', 'Guardia de Seguridad']:
-            return qs
-        if hasattr(user, 'casa') and user.casa:
-            return qs.filter(casa=user.casa)
-        return qs.none()
+            queryset = queryset.filter(fecha_entrada__date__range=[inicio, fin])
+        return queryset
+
+    # Endpoint para ver empleados que están ADENTRO
+    @action(detail=False, methods=['get'])
+    def activos(self, request):
+        activos = AccesoTrabajador.objects.filter(fecha_salida__isnull=True).order_by('-fecha_entrada')
+        serializer = self.get_serializer(activos, many=True)
+        return Response(serializer.data)
 
     @action(detail=False, methods=['post'])
-    def validar_qr(self, request):
-        qr_code = request.data.get('qr')
-        if not qr_code: return Response({'error': 'Falta código QR'}, status=400)
+    def escanear_qr(self, request):
+        codigo = request.data.get('codigo') 
+        
+        if not codigo:
+            return Response({'error': 'Código QR requerido'}, status=400)
 
-        if qr_code.startswith('WORKER-'):
+        # A) LÓGICA TRABAJADORES
+        if codigo.startswith('WORKER-'):
             try:
-                id_trabajador = qr_code.split('-')[1]
-                trabajador = Trabajador.objects.get(id=id_trabajador, activo=True)
-                acceso_activo = AccesoTrabajador.objects.filter(trabajador=trabajador, fecha_salida__isnull=True).last()
+                trabajador_id = int(codigo.split('-')[1])
+                trabajador = Trabajador.objects.get(id=trabajador_id)
                 
-                if acceso_activo:
-                    acceso_activo.fecha_salida = timezone.now()
-                    acceso_activo.save()
-                    return Response({'status': 'SALIDA REGISTRADA', 'nombre': trabajador.nombre_completo, 'tipo': 'Trabajador', 'foto': trabajador.foto.url if trabajador.foto else None})
-                else:
-                    AccesoTrabajador.objects.create(trabajador=trabajador, fecha_entrada=timezone.now())
-                    dest = f"Casa {trabajador.casa_asignada.numero_exterior}" if trabajador.casa_asignada else "General"
-                    return Response({'status': 'ENTRADA AUTORIZADA', 'nombre': trabajador.nombre_completo, 'tipo': 'Trabajador', 'destino': dest, 'foto': trabajador.foto.url if trabajador.foto else None})
-            except Trabajador.DoesNotExist: return Response({'error': 'Trabajador no encontrado'}, status=404)
+                acceso_abierto = AccesoTrabajador.objects.filter(trabajador=trabajador, fecha_salida__isnull=True).last()
+                foto_url = trabajador.foto.url if trabajador.foto else None
 
-        try:
-            visita = Visita.objects.get(codigo_qr=qr_code)
-            if visita.estatus == 'COMPLETADO': return Response({'error': 'Pase ya utilizado'}, status=400)
-            
-            if visita.fecha_salida_real is None:
-                return Response({'status': 'ENTRADA AUTORIZADA', 'nombre': visita.nombre_visitante, 'tipo': visita.get_tipo_display(), 'destino': str(visita.casa)})
-            
-            visita.estatus = 'COMPLETADO'
-            visita.fecha_salida_real = timezone.now()
-            visita.save()
-            return Response({'status': 'SALIDA REGISTRADA', 'nombre': visita.nombre_visitante})
-        except Visita.DoesNotExist: return Response({'error': 'Código QR no válido'}, status=404)
+                if acceso_abierto: # SALIDA
+                    acceso_abierto.fecha_salida = timezone.now()
+                    acceso_abierto.save()
+                    return Response({
+                        'mensaje': f'SALIDA: {trabajador.nombre_completo}', 'tipo': 'SALIDA', 
+                        'foto': foto_url, 'nombre': trabajador.nombre_completo,
+                        'puesto': trabajador.direccion, 'casa': str(trabajador.casa), 'hora': acceso_abierto.fecha_salida
+                    })
+                else: # ENTRADA
+                    nuevo = AccesoTrabajador.objects.create(trabajador=trabajador, fecha_entrada=timezone.now())
+                    return Response({
+                        'mensaje': f'ENTRADA: {trabajador.nombre_completo}', 'tipo': 'ENTRADA', 
+                        'foto': foto_url, 'nombre': trabajador.nombre_completo,
+                        'puesto': trabajador.direccion, 'casa': str(trabajador.casa), 'hora': nuevo.fecha_entrada
+                    })
+            except Exception as e:
+                return Response({'error': str(e)}, status=400)
+
+        # B) LÓGICA VISITAS
+        elif codigo.startswith('VISIT-'):
+            try:
+                visita_id = int(codigo.split('-')[1])
+                visita = Visita.objects.get(id=visita_id)
+
+                if visita.fecha_salida_real:
+                     return Response({'error': 'Este código ya fue cerrado.', 'tipo': 'ERROR'}, status=400)
+
+                if not visita.fecha_llegada_real: # ENTRADA
+                    visita.fecha_llegada_real = timezone.now()
+                    visita.save()
+                    return Response({
+                        'mensaje': f'ENTRADA VISITA: {visita.nombre_visitante}', 'tipo': 'ENTRADA',
+                        'nombre': visita.nombre_visitante, 'destino': f'Casa {visita.casa}', 'hora': visita.fecha_llegada_real
+                    })
+                else: # SALIDA
+                    visita.fecha_salida_real = timezone.now()
+                    visita.save()
+                    return Response({
+                        'mensaje': f'SALIDA VISITA: {visita.nombre_visitante}', 'tipo': 'SALIDA',
+                        'nombre': visita.nombre_visitante, 'destino': f'Casa {visita.casa}', 'hora': visita.fecha_salida_real
+                    })
+            except Exception as e:
+                return Response({'error': str(e)}, status=400)
+        
+        return Response({'error': 'QR no reconocido'}, status=400)
+
+# --- 3. VISITAS ---
+class VisitaViewSet(viewsets.ModelViewSet):
+    queryset = Visita.objects.all()
+    serializer_class = VisitaSerializer
+
+    @action(detail=False, methods=['get'])
+    def activas(self, request):
+        activas = Visita.objects.filter(fecha_llegada_real__isnull=False, fecha_salida_real__isnull=True).order_by('-fecha_llegada_real')
+        serializer = self.get_serializer(activas, many=True)
+        return Response(serializer.data)
 
 class TrabajadorViewSet(viewsets.ModelViewSet):
+    queryset = Trabajador.objects.all()
     serializer_class = TrabajadorSerializer
-    parser_classes = (MultiPartParser, FormParser, JSONParser) 
-    
-    def get_queryset(self):
-        user = self.request.user
-        if user.rol in ['admin', 'Administrador', 'Guardia de Seguridad']: return Trabajador.objects.all()
-        if hasattr(user, 'casa') and user.casa: return Trabajador.objects.filter(casa_asignada=user.casa, activo=True)
-        return Trabajador.objects.none()
     
     def perform_create(self, serializer):
-        if hasattr(self.request.user, 'casa') and self.request.user.casa: serializer.save(casa_asignada=self.request.user.casa)
+        casa_id = self.request.data.get('casa')
+        if casa_id: serializer.save(casa_id=casa_id)
         else: serializer.save()
 
-class AccesoTrabajadorViewSet(viewsets.ReadOnlyModelViewSet):
-    serializer_class = AccesoTrabajadorSerializer
-    permission_classes = [IsAuthenticated]
-    def get_queryset(self):
-        qs = AccesoTrabajador.objects.all().order_by('-fecha_entrada')
-        inicio = self.request.query_params.get('inicio')
-        fin = self.request.query_params.get('fin')
-        if inicio and fin: qs = qs.filter(fecha_entrada__range=[inicio, f"{fin} 23:59:59"])
-        return qs
-
+# --- 4. BITÁCORA ---
 class BitacoraViewSet(viewsets.ModelViewSet):
-    queryset = Bitacora.objects.all().order_by('-fecha')
+    queryset = Bitacora.objects.all()
     serializer_class = BitacoraSerializer
-    permission_classes = [IsAuthenticated]
 
-# --- VISTA DE REPORTE CONECTADA A UTILS ---
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.query_params.get('dia') == 'hoy':
+            ayer = timezone.now() - timezone.timedelta(hours=24)
+            qs = qs.filter(fecha__gte=ayer).order_by('-fecha')
+        return qs
+    
+    def perform_create(self, serializer):
+        serializer.save(autor=self.request.user)
+
+# --- 5. REPORTE PDF (CLASE IMPORTANTE) ---
 class ReporteAccesosView(APIView):
-    permission_classes = [IsAuthenticated]
-
     def get(self, request):
         inicio = request.query_params.get('inicio')
         fin = request.query_params.get('fin')
-        
-        if not inicio or not fin:
-            return Response({'error': 'Fechas requeridas'}, status=400)
+        if not inicio or not fin: return Response({'error': 'Faltan fechas'}, status=400)
 
-        fecha_fin_ajustada = f"{fin} 23:59:59"
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="accesos.pdf"'
         
-        accesos_trab = AccesoTrabajador.objects.filter(fecha_entrada__range=[inicio, fecha_fin_ajustada])
-        accesos_prov = Visita.objects.filter(
-            fecha_llegada__range=[inicio, fecha_fin_ajustada],
-            tipo='PROVEEDOR'
-        )
-
-        try:
-            # Usamos la función de utils.py
-            buffer = generar_pdf_accesos(accesos_trab, accesos_prov, inicio, fin)
-            response = HttpResponse(buffer, content_type='application/pdf')
-            response['Content-Disposition'] = f'attachment; filename="Accesos_{inicio}_{fin}.pdf"'
-            return response
-        except Exception as e:
-            return Response({'error': str(e)}, status=500)
+        p = canvas.Canvas(response, pagesize=letter)
+        p.drawString(50, 750, f"Reporte de Accesos: {inicio} al {fin}")
+        p.save()
+        return response

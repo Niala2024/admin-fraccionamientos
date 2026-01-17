@@ -1,35 +1,37 @@
 from rest_framework import serializers
-from .models import Visita, Trabajador, AccesoTrabajador, Bitacora
-
-class VisitaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Visita
-        fields = '__all__'
+from .models import Visita, Trabajador, AccesoTrabajador, Bitacora, ReporteDiario
 
 class TrabajadorSerializer(serializers.ModelSerializer):
-    # Campo extra para mostrar en texto dónde trabaja (para la tabla)
-    casa_info = serializers.SerializerMethodField()
-
+    casa_info = serializers.ReadOnlyField(source='casa.numero_exterior')
     class Meta:
         model = Trabajador
         fields = '__all__'
 
-    def get_casa_info(self, obj):
-        if obj.casa_asignada:
-            return f"Casa {obj.casa_asignada.numero_exterior}"
-        return "Fraccionamiento (General)"
-
 class AccesoTrabajadorSerializer(serializers.ModelSerializer):
-    nombre = serializers.ReadOnlyField(source='trabajador.nombre_completo')
-    # Obtenemos info de la casa a través del trabajador
-    casa = serializers.ReadOnlyField(source='trabajador.casa_asignada.numero_exterior', default='General')
-    
+    trabajador_nombre = serializers.ReadOnlyField(source='trabajador.nombre_completo')
+    casa_datos = serializers.ReadOnlyField(source='trabajador.casa.numero_exterior')
     class Meta:
         model = AccesoTrabajador
         fields = '__all__'
 
+class VisitaSerializer(serializers.ModelSerializer):
+    casa_nombre = serializers.ReadOnlyField(source='casa.numero_exterior')
+    class Meta:
+        model = Visita
+        fields = '__all__'
+
 class BitacoraSerializer(serializers.ModelSerializer):
-    usuario_nombre = serializers.ReadOnlyField(source='usuario.username')
+    autor_nombre = serializers.ReadOnlyField(source='autor.username')
     class Meta:
         model = Bitacora
         fields = '__all__'
+
+# ✅ NUEVO SERIALIZER
+class ReporteDiarioSerializer(serializers.ModelSerializer):
+    guardia_nombre = serializers.ReadOnlyField(source='guardia.first_name')
+    guardia_username = serializers.ReadOnlyField(source='guardia.username')
+    
+    class Meta:
+        model = ReporteDiario
+        fields = '__all__'
+        read_only_fields = ('guardia', 'fecha')

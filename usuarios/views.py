@@ -1,39 +1,31 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action # <--- IMPORTANTE
+from rest_framework.decorators import action
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
-from django.core.mail import send_mail # <--- IMPORTANTE
-from django.conf import settings       # <--- IMPORTANTE
+from django.core.mail import send_mail
+from django.conf import settings
 
 from .models import Usuario
 from .serializers import UsuarioSerializer
+from inmuebles.models import Casa
 
 class UsuarioViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
     serializer_class = UsuarioSerializer
 
-    # ✅ NUEVA ACCIÓN: Enviar correo personalizado desde el Admin Panel
     @action(detail=False, methods=['post'])
     def enviar_correo_vecino(self, request):
         destinatario = request.data.get('destinatario')
         asunto = request.data.get('asunto')
         mensaje = request.data.get('mensaje')
-
         if not destinatario or not asunto or not mensaje:
-            return Response({'error': 'Faltan datos (destinatario, asunto o mensaje)'}, status=status.HTTP_400_BAD_REQUEST)
-
+            return Response({'error': 'Faltan datos'}, status=400)
         try:
-            send_mail(
-                asunto,
-                mensaje,
-                settings.DEFAULT_FROM_EMAIL,
-                [destinatario],
-                fail_silently=False,
-            )
-            return Response({'status': 'Correo enviado correctamente'})
+            send_mail(asunto, mensaje, settings.DEFAULT_FROM_EMAIL, [destinatario], fail_silently=False)
+            return Response({'status': 'Enviado'})
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': str(e)}, status=500)
 
 class CustomAuthToken(ObtainAuthToken):
     def post(self, request, *args, **kwargs):
@@ -42,14 +34,30 @@ class CustomAuthToken(ObtainAuthToken):
         user = serializer.validated_data['user']
         token, created = Token.objects.get_or_create(user=user)
 
-        rol_usuario = getattr(user, 'rol', 'residente')
+        # Buscar casa del usuario
+        datos_casa = None
+        try:
+            casa = Casa.objects.filter(propietario=user).first()
+            if casa:
+                datos_casa = {
+                    'id': casa.id,
+                    'calle': casa.calle.nombre if casa.calle else '',
+                    'numero': casa.numero_exterior,
+                    'saldo_pendiente': str(casa.saldo_pendiente)
+                }
+        except Exception:
+            pass
 
         return Response({
             'token': token.key,
-            'user_id': user.pk,
-            'username': user.username,
-            'email': user.email,
-            'rol': rol_usuario,
-            'is_superuser': user.is_superuser,
-            'is_staff': user.is_staff
+            'user': {
+                'id': user.pk,
+                'username': user.username,
+                'email': user.email,
+                'nombre': f"{user.first_name} {user.last_name}".strip() or user.username,
+                'rol': getattr(user, 'rol', 'residente'),
+                'is_superuser': user.is_superuser,
+                'is_staff': user.is_staff
+            },
+            'casa': datos_casa
         })

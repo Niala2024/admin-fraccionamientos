@@ -9,13 +9,14 @@ class FraccionamientoSerializer(serializers.ModelSerializer):
 class CalleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Calle
-        fields = ['id', 'nombre']
+        fields = '__all__'
 
 class CasaSerializer(serializers.ModelSerializer):
     calle_nombre = serializers.ReadOnlyField(source='calle.nombre')
     
     # Campos calculados (Nombre, Teléfono y AHORA Email)
-    propietario = serializers.SerializerMethodField()
+    propietario_nombre = serializers.StringRelatedField(source='propietario', read_only=True)
+    propietario_id = serializers.PrimaryKeyRelatedField(source='propietario', read_only=True)
     telefono_propietario = serializers.SerializerMethodField() 
     email_propietario = serializers.SerializerMethodField() # ✅ NUEVO
 

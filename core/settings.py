@@ -66,10 +66,11 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        # 👇 CAMBIO 1: Aquí le decimos dónde estará el HTML generado por React
-        'DIRS': [BASE_DIR / 'frontend' / 'dist'], 
+        # 👇 CAMBIO: Ponemos la ruta en texto plano (Hardcoded)
+        'DIRS': ['/app/frontend/dist'], 
         'APP_DIRS': True,
         'OPTIONS': {
+            # ... (deja el resto igual)
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',

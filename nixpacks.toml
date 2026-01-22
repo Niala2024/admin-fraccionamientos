@@ -1,4 +1,4 @@
-# Configuración Híbrida: Python (Backend) + Node (Frontend)
+# nixpacks.toml
 providers = ["python", "node"]
 
 [phases.setup]

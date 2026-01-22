@@ -5,7 +5,7 @@ import axios from 'axios';
 // Si subes esto a Railway, automáticamente usará la variable de entorno.
 const baseURL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://127.0.0.1:8000' 
-  : import.meta.env.VITE_API_URL;
+  : 'https://admin-fraccionamientos-production.up.railway.app'; // 👈 ¡AQUÍ ESTÁ EL CAMBIO! Puesto a mano.
 
 const api = axios.create({
   baseURL: baseURL,

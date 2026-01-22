@@ -110,7 +110,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # 👇 CAMBIO 2: Agregamos esto para que Django encuentre los JS y CSS de React
 STATICFILES_DIRS = [
-    BASE_DIR / 'frontend' / 'dist',
+    '/app/frontend/dist',  # 👇 Ruta en texto plano
 ]
 
 # --- ARCHIVOS MEDIA ---

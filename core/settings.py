@@ -21,8 +21,7 @@ EN_PRODUCCION = 'RAILWAY_ENVIRONMENT' in os.environ
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default-para-local')
 
 # DEBUG se apaga solo en producción (Por seguridad)
-# Si estamos en local (EN_PRODUCCION es False), DEBUG será True.
-DEBUG = not EN_PRODUCCION
+DEBUG = True 
 
 # Permitir todos los hosts es necesario en Railway por sus IPs dinámicas
 ALLOWED_HOSTS = ["*"]
@@ -51,9 +50,9 @@ INSTALLED_APPS = [
 AUTH_USER_MODEL = 'usuarios.Usuario'
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware', # ✅ EL PRIMERO (Vital para conectar Frontend)
+    'corsheaders.middleware.CorsMiddleware', # ✅ EL PRIMERO
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', # ✅ Para archivos estáticos en Railway
+    'whitenoise.middleware.WhiteNoiseMiddleware', # ✅ Para archivos estáticos
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -67,7 +66,8 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        # 👇 CAMBIO 1: Aquí le decimos dónde estará el HTML generado por React
+        'DIRS': [BASE_DIR / 'frontend' / 'dist'], 
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -82,7 +82,6 @@ TEMPLATES = [
 WSGI_APPLICATION = 'core.wsgi.application'
 
 # --- 3. BASE DE DATOS HÍBRIDA ---
-# Si existe DATABASE_URL (Railway), la usa. Si no, crea db.sqlite3 local.
 DATABASES = {
     'default': dj_database_url.config(
         default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
@@ -106,7 +105,12 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Compresión y caché eficiente para producción
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+#STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# 👇 CAMBIO 2: Agregamos esto para que Django encuentre los JS y CSS de React
+STATICFILES_DIRS = [
+    BASE_DIR / 'frontend' / 'dist',
+]
 
 # --- ARCHIVOS MEDIA ---
 MEDIA_URL = '/media/'
@@ -122,21 +126,18 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'mision.country.dgo@gmail.com'
-# OJO: En producción real, esta contraseña debería ir en variable de entorno
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'bnkmjgctfxxwvbhw') 
 DEFAULT_FROM_EMAIL = 'Administración Fraccionamiento <mision.country.dgo@gmail.com>'
 
-# --- 5. CORS Y CSRF (EL SECRETO DE LA CONEXIÓN) ---
-# Permitir conexiones desde cualquier origen (Híbrido: Local + Web + Móvil)
+# --- 5. CORS Y CSRF ---
 CORS_ALLOW_ALL_ORIGINS = True 
 CORS_ALLOW_CREDENTIALS = True
 
-# Orígenes de confianza para formularios Admin (CSRF)
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",          # Tu Frontend Local
-    "http://127.0.0.1:8000",          # Tu Backend Local
-    "https://*.railway.app",          # Cualquier dominio de Railway
-    "https://*.up.railway.app",       # Variación de dominio Railway
+    "http://localhost:5173",          
+    "http://127.0.0.1:8000",          
+    "https://*.railway.app",          
+    "https://*.up.railway.app",       
 ]
 
 REST_FRAMEWORK = {
@@ -148,5 +149,4 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 50
 }
 
-# Proxy SSL para Railway (Evita errores de HTTPS/HTTP)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

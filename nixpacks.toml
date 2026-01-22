@@ -1,4 +1,4 @@
-# nixpacks.toml
+# nixpacks.toml - Configuración Maestra
 providers = ["python", "node"]
 
 [phases.setup]
@@ -11,8 +11,9 @@ cmds = [
     "pip install -r requirements.txt",
     "python manage.py collectstatic --noinput",
     "python manage.py migrate",
-    "python manage.py createsuperuser --noinput || echo 'Admin listo'"
+    "python manage.py createsuperuser --noinput || echo 'El usuario ya existe'"
 ]
 
 [start]
+# OJO: Aquí incluimos el --bind para evitar el Error 502
 cmd = "gunicorn core.wsgi:application --bind 0.0.0.0:$PORT"

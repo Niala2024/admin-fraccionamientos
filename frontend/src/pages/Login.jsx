@@ -7,7 +7,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LoginIcon from '@mui/icons-material/Login';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/axiosConfig'; 
+import api from '../api/axiosConfig'; // ✅ Asegúrate de importar el que arreglamos (axiosConfig o api)
 
 function Login() {
   const navigate = useNavigate();
@@ -23,13 +23,12 @@ function Login() {
     setLoading(true);
     setError('');
 
-    // Ajusta la URL según tu entorno
-    const url = window.location.hostname === 'localhost' 
-        ? 'http://127.0.0.1:8000/api-token-auth/' 
-        : 'https://web-production-619e0.up.railway.app/api-token-auth/';
-
     try {
-      const res = await api.post(url, credentials);
+      // ✅ CORRECCIÓN: Usamos 'api.post' con la ruta relativa.
+      // Como 'api' ya tiene la BaseURL correcta (https://admin-fraccionamientos...), 
+      // esto se conectará automáticamente al lugar correcto.
+      const res = await api.post('/api-token-auth/', credentials);
+      
       const { token, user, casa } = res.data;
 
       // 1. Limpiar basura vieja

@@ -21,7 +21,7 @@ EN_PRODUCCION = 'RAILWAY_ENVIRONMENT' in os.environ
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default-para-local')
 
 # DEBUG se apaga solo en producción (Por seguridad)
-DEBUG = not EN_PRODUCCION
+DEBUG = True 
 
 # Permitir todos los hosts es necesario en Railway por sus IPs dinámicas
 ALLOWED_HOSTS = ["*"]
@@ -105,7 +105,7 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Compresión y caché eficiente para producción
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+#STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # 👇 CAMBIO 2: Agregamos esto para que Django encuentre los JS y CSS de React
 STATICFILES_DIRS = [

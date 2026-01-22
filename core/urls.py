@@ -1,15 +1,16 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path # ✅ Agregamos re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
+from django.views.generic import TemplateView # ✅ AGREGA ESTE IMPORT OBLIGATORIO
+
+# ... (MANTÉN TODOS TUS IMPORTS DE VIEWS IGUAL QUE ANTES) ...
 from usuarios.views import UsuarioViewSet, CustomAuthToken
 from inmuebles.views import FraccionamientoViewSet, CasaViewSet, CalleViewSet
 from finanzas.views import PagoViewSet, TipoEgresoViewSet, EgresoViewSet, ReporteFinancieroView
 from comunidad.views import EncuestaViewSet, PublicacionViewSet, QuejaViewSet, AvisoViewSet
 from servicios.views import ServicioViewSet
-
-# Importamos seguridad
 from seguridad.views import (
     VisitaViewSet, BitacoraViewSet, TrabajadorViewSet, 
     AccesoTrabajadorViewSet, ReporteAccesosView, 
@@ -17,13 +18,11 @@ from seguridad.views import (
 )
 
 router = DefaultRouter()
+# ... (MANTÉN TODOS TUS ROUTER.REGISTER IGUAL QUE ANTES) ...
 router.register(r'fraccionamientos', FraccionamientoViewSet, basename='fraccionamiento')
 router.register(r'usuarios', UsuarioViewSet)
 router.register(r'casas', CasaViewSet)
-
-# ✅ ESTA ERA LA LÍNEA QUE FALTABA PARA EL ERROR 404
 router.register(r'calles', CalleViewSet)
-
 router.register(r'pagos', PagoViewSet)
 router.register(r'visitas', VisitaViewSet, basename='visita')
 router.register(r'trabajadores', TrabajadorViewSet, basename='trabajador')
@@ -45,6 +44,9 @@ urlpatterns = [
     path('api-token-auth/', CustomAuthToken.as_view(), name='api_token_auth'),
     path('api/generar-reporte/', ReporteFinancieroView.as_view(), name='generar_reporte'),
     path('api/reporte-accesos/', ReporteAccesosView.as_view(), name='reporte_accesos'),
+
+    # ✅ ESTA ES LA MAGIA: ATRAPA CUALQUIER OTRA RUTA Y MUESTRA REACT
+    re_path(r'^.*$', TemplateView.as_view(template_name='index.html')),
 ]
 
 if settings.DEBUG:

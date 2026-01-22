@@ -1,22 +1,13 @@
-# nixpacks.toml - Configuración Maestra
+# nixpacks.toml
 providers = ["python", "node"]
-
-[phases.build]
-cmds = [
-    "cd frontend && npm install && npm run build",  # 👈 ESTO ES LO NUEVO: Entra, instala y construye
-    "pip install -r requirements.txt",
-    "python manage.py collectstatic --noinput",
-    "python manage.py migrate",
-    "python manage.py createsuperuser --noinput || echo 'El usuario ya existe'"
-]
 
 [phases.setup]
 nixPkgs = ["python3", "postgresql", "nodejs"]
 
 [phases.build]
+# 👇 ESTA ES LA CLAVE: Entra a frontend, instala y construye
 cmds = [
-    "npm install",
-    "npm run build",
+    "cd frontend && npm install && npm run build",
     "pip install -r requirements.txt",
     "python manage.py collectstatic --noinput",
     "python manage.py migrate",
@@ -24,5 +15,4 @@ cmds = [
 ]
 
 [start]
-# OJO: Aquí incluimos el --bind para evitar el Error 502
 cmd = "gunicorn core.wsgi:application --bind 0.0.0.0:$PORT"

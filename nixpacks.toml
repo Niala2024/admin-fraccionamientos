@@ -1,0 +1,11 @@
+# Archivo de configuración para forzar Python en Railway
+providers = ["python"]
+
+[phases.setup]
+nixPkgs = ["python3", "postgresql"]
+
+[phases.build]
+cmds = ["pip install -r requirements.txt", "python manage.py collectstatic --noinput", "python manage.py migrate", "python manage.py createsuperuser --noinput || echo 'Admin listo'"]
+
+[start]
+cmd = "gunicorn core.wsgi:application"

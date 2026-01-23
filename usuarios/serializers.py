@@ -1,28 +1,38 @@
 from rest_framework import serializers
-from django.contrib.auth.models import User
+from .models import Usuario
 from inmuebles.models import Casa 
 
 class UsuarioSerializer(serializers.ModelSerializer):
-    # 👇 ESTO ES LO QUE ARREGLA EL ERROR 400: allow_null=True
+    nombre_completo = serializers.SerializerMethodField()
+    
+    # Definimos los campos permitiendo nulos
     casa_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     password = serializers.CharField(write_only=True, required=False, allow_blank=True)
-    
-    # Campo extra para mostrar el nombre completo en el frontend
-    nombre_completo = serializers.SerializerMethodField()
 
     class Meta:
-        model = User
+        model = Usuario
         fields = [
-            'id', 'username', 'first_name', 'last_name', 'email', 'rol', 
-            'password', 'casa_id', 'telefono', 'nombre_completo', 'is_staff', 'is_superuser'
+            'id', 'username', 'email', 'first_name', 'last_name', 
+            'telefono', 'rol', 'nombre_completo', 
+            'is_staff', 'is_superuser', 'casa_id', 'password'
         ]
         extra_kwargs = {'password': {'write_only': True}}
 
-    def get_nombre_completo(self, obj):
-        return f"{obj.first_name} {obj.last_name}".strip() or obj.username
+    # 👇 ESTA ES LA MAGIA: Interceptamos los datos antes de validar
+    def to_internal_value(self, data):
+        # Hacemos una copia mutable de los datos por si acaso
+        if hasattr(data, 'copy'):
+            data = data.copy()
+
+        # Si viene 'casa_id', revisamos si es texto vacío o 'null' y lo forzamos a None
+        if 'casa_id' in data:
+            valor = data.get('casa_id')
+            if valor == "" or valor == "null" or valor == "undefined":
+                data['casa_id'] = None
+        
+        return super().to_internal_value(data)
 
     def to_representation(self, instance):
-        """ Envía al Frontend la info de la casa actual (o vacío si es guardia) """
         ret = super().to_representation(instance)
         try:
             casa = Casa.objects.filter(residentes=instance).first()
@@ -30,21 +40,24 @@ class UsuarioSerializer(serializers.ModelSerializer):
                 ret['casa_id'] = casa.id
                 ret['casa_info'] = f"{casa.calle} #{casa.numero_exterior}"
             else:
-                ret['casa_id'] = "" # Importante para que el frontend no falle
+                ret['casa_id'] = ""
         except Exception:
             ret['casa_id'] = ""
-        return ret
+        return ret 
+
+    def get_nombre_completo(self, obj):
+        n = f"{obj.first_name} {obj.last_name}".strip()
+        return n if n else obj.username
 
     def create(self, validated_data):
         password = validated_data.pop('password', None)
         casa_id = validated_data.pop('casa_id', None)
         
-        user = User(**validated_data)
+        user = Usuario(**validated_data)
         if password:
             user.set_password(password)
         user.save()
 
-        # Si mandaron casa, la asignamos
         if casa_id:
             try:
                 casa = Casa.objects.get(id=casa_id)
@@ -57,17 +70,16 @@ class UsuarioSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
         
-        # Verificar si 'casa_id' viene en la petición (puede ser un número o None)
+        # Lógica de Casa
         if 'casa_id' in validated_data:
-            casa_id = validated_data.pop('casa_id') # Sacamos el valor
+            casa_id = validated_data.pop('casa_id')
             
-            # 1. LIMPIEZA: Quitamos al usuario de cualquier casa anterior
+            # Limpiar casas anteriores
             casas_anteriores = Casa.objects.filter(residentes=instance)
             for c in casas_anteriores:
                 c.residentes.remove(instance)
             
-            # 2. ASIGNACIÓN: Si casa_id tiene valor (es Residente), lo agregamos.
-            # Si es None (Guardia), no hacemos nada y se queda sin casa (¡Correcto!)
+            # Asignar nueva si existe
             if casa_id is not None:
                 try:
                     nueva_casa = Casa.objects.get(id=casa_id)
@@ -75,7 +87,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
                 except Casa.DoesNotExist:
                     pass 
 
-        # Actualizar resto de campos
+        # Actualizar campos estándar
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         

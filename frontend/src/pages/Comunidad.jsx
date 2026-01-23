@@ -21,11 +21,9 @@ import { Chart } from "react-google-charts";
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axiosConfig'; 
 
-// 👇 1. IMPORTA TU IMAGEN AQUÍ
-// Asegúrate de poner la foto en: frontend/src/assets/portada.jpg
-import imagenPortada from '../assets/portada.jpg'; 
-// Si no tienes imagen aún, usa esta línea temporalmente para probar:
-// const imagenPortada = "https://images.unsplash.com/photo-1558036117-15d82a90b9b1?auto=format&fit=crop&w=1920&q=80";
+// 👇 AQUÍ ESTÁ LA CLAVE: Importamos la imagen desde TUS carpetas
+import portadaFija from '../assets/portada.png'; 
+// NOTA: Si tu imagen es .jpg, cambia la línea de arriba a: '../assets/portada.jpg'
 
 function Comunidad() {
   const navigate = useNavigate();
@@ -38,7 +36,7 @@ function Comunidad() {
   const [quejas, setQuejas] = useState([]);
   const [avisos, setAvisos] = useState([]); 
 
-  // Header (Solo Título)
+  // Header (Solo edición de título)
   const [openEditHeader, setOpenEditHeader] = useState(false);
   const [formHeader, setFormHeader] = useState({ titulo: '' });
 
@@ -47,17 +45,19 @@ function Comunidad() {
   const [nuevaEncuesta, setNuevaEncuesta] = useState({ titulo: '', descripcion: '' });
   const [opcionesDinamicas, setOpcionesDinamicas] = useState(["", ""]); 
   
-  // Post y Quejas (Multimedia)
+  // Post (Foro)
   const [openPost, setOpenPost] = useState(false);
   const [formPost, setFormPost] = useState({ titulo: '', contenido: '', tipo: 'SOCIAL' });
   const [archivoImagenPost, setArchivoImagenPost] = useState(null); 
   const [archivoVideoPost, setArchivoVideoPost] = useState(null);   
 
+  // Quejas
   const [openQueja, setOpenQueja] = useState(false);
   const [formQueja, setFormQueja] = useState({ asunto: '', descripcion: '' });
   const [archivoImagenQueja, setArchivoImagenQueja] = useState(null); 
   const [archivoVideoQueja, setArchivoVideoQueja] = useState(null);   
 
+  // Avisos
   const [openAviso, setOpenAviso] = useState(false);
   const [formAviso, setFormAviso] = useState({ titulo: '', mensaje: '' });
 
@@ -115,7 +115,6 @@ function Comunidad() {
           setOpenAviso(false); setFormAviso({titulo:'', mensaje:''}); cargarDatos(); alert("Aviso publicado");
       } catch(e) { alert("Error al publicar aviso"); }
   };
-  
   const borrarAviso = async (id) => {
       if(!confirm("¿Borrar este aviso?")) return;
       try { await api.delete(`/api/avisos/${id}/`, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); cargarDatos(); } catch(e){ alert("Error"); }
@@ -126,9 +125,10 @@ function Comunidad() {
       setOpenEditHeader(true); 
   };
   
-  // ✅ SOLO GUARDAMOS TEXTO (Mucho más estable)
+  // ✅ SOLO GUARDAMOS EL TÍTULO (Texto simple, sin problemas de archivos)
   const handleSaveHeader = async () => {
       if(!infoComunidad) return; 
+      
       const formData = new FormData();
       formData.append('titulo_header', formHeader.titulo); 
       
@@ -136,6 +136,7 @@ function Comunidad() {
           await api.patch(`/api/fraccionamientos/${infoComunidad.id}/`, formData, { 
               headers: { Authorization: `Token ${localStorage.getItem('token')}` } 
           }); 
+          
           alert("Título actualizado correctamente"); 
           setOpenEditHeader(false); 
           cargarDatos(); 
@@ -156,6 +157,8 @@ function Comunidad() {
       fd.append('tipo',formPost.tipo); 
       if(archivoImagenPost) fd.append('imagen', archivoImagenPost);
       if(archivoVideoPost) fd.append('video', archivoVideoPost); 
+
+      // Para posts y quejas sí dejamos el undefined para que suban archivos si quieren
       try { await api.post('/api/foro/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': undefined } }); 
       setOpenPost(false); setArchivoImagenPost(null); setArchivoVideoPost(null); cargarDatos(); } catch(e){ alert("Error al publicar"); } 
   };
@@ -166,6 +169,7 @@ function Comunidad() {
       fd.append('descripcion', formQueja.descripcion);
       if(archivoImagenQueja) fd.append('imagen', archivoImagenQueja);
       if(archivoVideoQueja) fd.append('video', archivoVideoQueja);
+
       try { await api.post('/api/quejas/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': undefined } }); 
       setOpenQueja(false); setArchivoImagenQueja(null); setArchivoVideoQueja(null); alert("Queja Enviada"); cargarDatos(); } catch(e){ alert("Error al enviar queja"); } 
   };
@@ -179,15 +183,17 @@ function Comunidad() {
             position: 'relative', 
             bgcolor: '#4a148c', 
             color: 'white', 
-            // ✅ USAMOS LA IMAGEN IMPORTADA DIRECTAMENTE
-            backgroundImage: `url(${imagenPortada})`, 
+            // ✅ USAMOS LA VARIABLE IMPORTADA DIRECTAMENTE
+            backgroundImage: `url(${portadaFija})`, 
             backgroundSize: 'cover', 
             backgroundPosition: 'center', 
             p: 4, pt: 8, pb: 8, 
             boxShadow: 3 
         }}
       >
+          {/* Capa oscura para que se lea el texto */}
           <Box sx={{position:'absolute', top:0, left:0, width:'100%', height:'100%', bgcolor:'rgba(0,0,0,0.5)'}} />
+          
           <Container sx={{position:'relative', zIndex:1}}>
               <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap">
                   <Box display="flex" alignItems="center">
@@ -197,7 +203,6 @@ function Comunidad() {
                           <Typography variant="subtitle1" sx={{opacity:0.9, textShadow: '1px 1px 2px black'}}>Espacio Vecinal</Typography>
                       </Box>
                   </Box>
-                  {/* Botón solo edita título */}
                   {isAdmin && <Button variant="contained" color="secondary" startIcon={<EditIcon/>} onClick={handleOpenEditHeader} sx={{mt:{xs:2, md:0}}}>Editar Título</Button>}
               </Box>
           </Container>
@@ -299,12 +304,15 @@ function Comunidad() {
         )}
       </Container>
 
-      {/* MODALES */}
-      
-      {/* EDITAR TÍTULO (SIN FOTO) */}
+      {/* --- MODALES --- */}
+
+      {/* EDITAR TÍTULO (SIN FOTO, YA QUE ES FIJA) */}
       <Dialog open={openEditHeader} onClose={()=>setOpenEditHeader(false)}>
           <DialogTitle>Personalizar Título</DialogTitle>
           <DialogContent>
+              <Typography variant="caption" color="text.secondary" sx={{mb:2, display:'block'}}>
+                 La imagen de fondo es fija. Aquí puedes cambiar el texto del título.
+              </Typography>
               <TextField margin="dense" label="Título del Encabezado" fullWidth value={formHeader.titulo} onChange={(e)=>setFormHeader({...formHeader, titulo:e.target.value})} />
           </DialogContent>
           <DialogActions>
@@ -313,7 +321,7 @@ function Comunidad() {
           </DialogActions>
       </Dialog>
       
-      {/* RESTO DE MODALES IGUALES... */}
+      {/* RESTO DE MODALES SIN CAMBIOS... */}
       <Dialog open={openAviso} onClose={()=>setOpenAviso(false)} fullWidth maxWidth="sm"><DialogTitle sx={{bgcolor:'#ff9800', color:'white'}}>Nuevo Aviso General</DialogTitle><DialogContent sx={{mt:2}}><TextField label="Título del Aviso" fullWidth value={formAviso.titulo} onChange={(e)=>setFormAviso({...formAviso, titulo:e.target.value})} sx={{mb:2}} /><TextField label="Mensaje" multiline rows={4} fullWidth value={formAviso.mensaje} onChange={(e)=>setFormAviso({...formAviso, mensaje:e.target.value})} /></DialogContent><DialogActions><Button onClick={()=>setOpenAviso(false)}>Cancelar</Button><Button onClick={crearAviso} variant="contained" color="warning">Publicar</Button></DialogActions></Dialog>
       <Dialog open={openEncuesta} onClose={()=>setOpenEncuesta(false)}><DialogTitle>Nueva Encuesta</DialogTitle><DialogContent><TextField fullWidth label="Título" value={nuevaEncuesta.titulo} onChange={(e)=>setNuevaEncuesta({...nuevaEncuesta, titulo:e.target.value})}/><Box mt={1}>{opcionesDinamicas.map((op,i)=><TextField key={i} fullWidth size="small" placeholder={`Opción ${i+1}`} value={op} onChange={(e)=>handleOpcionChange(i,e.target.value)} sx={{mb:1}}/>)}<Button onClick={()=>setOpcionesDinamicas([...opcionesDinamicas,""])}>+ Opción</Button></Box></DialogContent><DialogActions><Button onClick={crearEncuesta}>Publicar</Button></DialogActions></Dialog>
       <Dialog open={openPost} onClose={()=>setOpenPost(false)} fullWidth maxWidth="sm"><DialogTitle>Nuevo Post</DialogTitle><DialogContent><TextField fullWidth label="Título" margin="dense" onChange={(e)=>setFormPost({...formPost, titulo:e.target.value})}/><TextField fullWidth multiline rows={3} margin="dense" label="Contenido" onChange={(e)=>setFormPost({...formPost, contenido:e.target.value})}/><Box display="flex" gap={2} mt={2}><Button variant="outlined" component="label" startIcon={<PhotoCamera/>}>{archivoImagenPost ? "Foto Seleccionada" : "Foto"}<input type="file" hidden accept="image/*" onChange={(e)=>setArchivoImagenPost(e.target.files[0])}/></Button><Button variant="outlined" component="label" startIcon={<VideocamIcon/>}>{archivoVideoPost ? "Video Seleccionado" : "Video"}<input type="file" hidden accept="video/*" onChange={(e)=>setArchivoVideoPost(e.target.files[0])}/></Button></Box></DialogContent><DialogActions><Button onClick={()=>setOpenPost(false)}>Cancelar</Button><Button onClick={crearPost} variant="contained">Publicar</Button></DialogActions></Dialog>

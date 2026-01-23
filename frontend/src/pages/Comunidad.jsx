@@ -15,7 +15,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
-import VideocamIcon from '@mui/icons-material/Videocam'; // ✅ Nuevo icono
+import VideocamIcon from '@mui/icons-material/Videocam'; 
 
 import { Chart } from "react-google-charts"; 
 import { useNavigate } from 'react-router-dom';
@@ -37,6 +37,9 @@ function Comunidad() {
   const [formHeader, setFormHeader] = useState({ titulo: '' });
   const [fotoHeader, setFotoHeader] = useState(null);
   const [previewHeader, setPreviewHeader] = useState(null);
+  
+  // ✅ NUEVO: Estado para romper el caché de la imagen
+  const [cacheBuster, setCacheBuster] = useState(Date.now());
 
   // Encuestas
   const [openEncuesta, setOpenEncuesta] = useState(false);
@@ -46,14 +49,14 @@ function Comunidad() {
   // Post (Foro)
   const [openPost, setOpenPost] = useState(false);
   const [formPost, setFormPost] = useState({ titulo: '', contenido: '', tipo: 'SOCIAL' });
-  const [archivoImagenPost, setArchivoImagenPost] = useState(null); // ✅ Separado
-  const [archivoVideoPost, setArchivoVideoPost] = useState(null);   // ✅ Separado
+  const [archivoImagenPost, setArchivoImagenPost] = useState(null); 
+  const [archivoVideoPost, setArchivoVideoPost] = useState(null);   
 
   // Quejas
   const [openQueja, setOpenQueja] = useState(false);
   const [formQueja, setFormQueja] = useState({ asunto: '', descripcion: '' });
-  const [archivoImagenQueja, setArchivoImagenQueja] = useState(null); // ✅ Nuevo
-  const [archivoVideoQueja, setArchivoVideoQueja] = useState(null);   // ✅ Nuevo
+  const [archivoImagenQueja, setArchivoImagenQueja] = useState(null); 
+  const [archivoVideoQueja, setArchivoVideoQueja] = useState(null);   
 
   // Avisos
   const [openAviso, setOpenAviso] = useState(false);
@@ -82,7 +85,11 @@ function Comunidad() {
     try {
         const resFracc = await api.get('/api/fraccionamientos/', { headers });
         const listaFracc = resFracc.data.results || resFracc.data;
-        if (listaFracc && listaFracc.length > 0) setInfoComunidad(listaFracc[0]);
+        if (listaFracc && listaFracc.length > 0) {
+            setInfoComunidad(listaFracc[0]);
+            // ✅ ACTUALIZAMOS EL CACHÉ AL CARGAR DATOS NUEVOS
+            setCacheBuster(Date.now());
+        }
 
         if (tabIndex === 0) { 
              const res = await api.get('/api/avisos/', { headers });
@@ -117,31 +124,37 @@ function Comunidad() {
   };
 
   const handleOpenEditHeader = () => { if(infoComunidad) { setFormHeader({ titulo: infoComunidad.titulo_header || infoComunidad.nombre }); setPreviewHeader(infoComunidad.imagen_portada); } setOpenEditHeader(true); };
+  
   const handleSaveHeader = async () => {
       if(!infoComunidad) return; 
       const formData = new FormData();
-      formData.append('titulo_header', formHeader.titulo); if(fotoHeader) formData.append('imagen_portada', fotoHeader);
-      try { await api.patch(`/api/fraccionamientos/${infoComunidad.id}/`, formData, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': 'multipart/form-data' } }); alert("Portada actualizada"); setOpenEditHeader(false); cargarDatos(); } catch(e) { alert("Error"); }
+      formData.append('titulo_header', formHeader.titulo); 
+      if(fotoHeader) formData.append('imagen_portada', fotoHeader);
+      
+      try { 
+          await api.patch(`/api/fraccionamientos/${infoComunidad.id}/`, formData, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': 'multipart/form-data' } }); 
+          alert("Portada actualizada"); 
+          setOpenEditHeader(false); 
+          cargarDatos(); // ✅ ESTO HARÁ QUE LA IMAGEN PARPADEE Y SE ACTUALICE
+      } catch(e) { alert("Error"); }
   };
 
   const handleOpcionChange = (i,v) => { const n=[...opcionesDinamicas]; n[i]=v; setOpcionesDinamicas(n); };
   const crearEncuesta = async () => { try { await api.post('/api/encuestas/', { titulo: nuevaEncuesta.titulo, descripcion: nuevaEncuesta.descripcion, opciones: opcionesDinamicas }, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); setOpenEncuesta(false); cargarDatos(); } catch(e){ alert("Error"); } };
   const votar = async (eId, oId) => { try { await api.post(`/api/encuestas/${eId}/votar/`, { opcion_id: oId }, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); alert("Voto OK"); cargarDatos(); } catch(e){alert("Error");} };
   
-  // ✅ CORRECCIÓN POST (Video + Foto)
   const crearPost = async () => { 
       const fd = new FormData(); 
       fd.append('titulo',formPost.titulo); 
       fd.append('contenido',formPost.contenido); 
       fd.append('tipo',formPost.tipo); 
       if(archivoImagenPost) fd.append('imagen', archivoImagenPost);
-      if(archivoVideoPost) fd.append('video', archivoVideoPost); // <-- Ahora sí enviamos video
+      if(archivoVideoPost) fd.append('video', archivoVideoPost); 
 
       try { await api.post('/api/foro/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type':'multipart/form-data' } }); 
       setOpenPost(false); setArchivoImagenPost(null); setArchivoVideoPost(null); cargarDatos(); } catch(e){ alert("Error al publicar"); } 
   };
 
-  // ✅ CORRECCIÓN QUEJA (FormData para archivos)
   const crearQueja = async () => { 
       const fd = new FormData();
       fd.append('asunto', formQueja.asunto);
@@ -153,11 +166,38 @@ function Comunidad() {
       setOpenQueja(false); setArchivoImagenQueja(null); setArchivoVideoQueja(null); alert("Queja Enviada"); cargarDatos(); } catch(e){ alert("Error al enviar queja"); } 
   };
 
+  // ✅ FUNCIÓN INTELIGENTE PARA LA IMAGEN
+  const getImagenUrl = () => {
+      if (!infoComunidad?.imagen_portada) return 'none';
+      
+      let url = infoComunidad.imagen_portada;
+      
+      // Si la URL es relativa, le pegamos el dominio del servidor
+      if (!url.startsWith('http')) {
+          const baseUrl = import.meta.env.VITE_API_URL || 'https://admin-fraccionamientos-production.up.railway.app';
+          url = `${baseUrl.replace(/\/$/, '')}${url.startsWith('/') ? '' : '/'}${url}`;
+      }
+
+      // Agregamos el "rompe-caché"
+      return `url(${url}?v=${cacheBuster})`;
+  };
+
   return (
     <Box sx={{ flexGrow: 1, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
       
       {/* HEADER PORTADA */}
-      <Box sx={{ position: 'relative', bgcolor: '#4a148c', color: 'white', backgroundImage: infoComunidad?.imagen_portada ? `url(${infoComunidad.imagen_portada})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', p: 4, pt: 8, pb: 8, boxShadow: 3 }}>
+      <Box 
+        sx={{ 
+            position: 'relative', 
+            bgcolor: '#4a148c', 
+            color: 'white', 
+            backgroundImage: getImagenUrl(), // ✅ USAMOS LA NUEVA FUNCIÓN
+            backgroundSize: 'cover', 
+            backgroundPosition: 'center', 
+            p: 4, pt: 8, pb: 8, 
+            boxShadow: 3 
+        }}
+      >
           <Box sx={{position:'absolute', top:0, left:0, width:'100%', height:'100%', bgcolor:'rgba(0,0,0,0.5)'}} />
           <Container sx={{position:'relative', zIndex:1}}>
               <Box display="flex" alignItems="center" justifyContent="space-between" flexWrap="wrap">

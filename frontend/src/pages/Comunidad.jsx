@@ -87,7 +87,8 @@ function Comunidad() {
         const listaFracc = resFracc.data.results || resFracc.data;
         if (listaFracc && listaFracc.length > 0) {
             setInfoComunidad(listaFracc[0]);
-            setCacheBuster(Date.now()); // Forzamos actualización visual de la imagen
+            // Forzamos actualización visual de la imagen
+            setCacheBuster(Date.now());
         }
 
         if (tabIndex === 0) { 
@@ -124,7 +125,7 @@ function Comunidad() {
 
   const handleOpenEditHeader = () => { if(infoComunidad) { setFormHeader({ titulo: infoComunidad.titulo_header || infoComunidad.nombre }); setPreviewHeader(infoComunidad.imagen_portada); } setOpenEditHeader(true); };
   
-  // ✅ FUNCIÓN CORREGIDA: Habilitamos envío de archivos
+  // ✅ FUNCIÓN CORREGIDA Y BLINDADA
   const handleSaveHeader = async () => {
       if(!infoComunidad) return; 
       
@@ -137,12 +138,11 @@ function Comunidad() {
       }
       
       try { 
-          // 👇 AQUÍ ESTABA EL ERROR: Necesitamos 'Content-Type': undefined 
-          // Esto permite que el navegador configure automáticamente los límites del archivo (boundary)
+          // 👇 LA CLAVE: 'Content-Type': undefined obliga a Axios a dejar que el navegador ponga el boundary correcto
           await api.patch(`/api/fraccionamientos/${infoComunidad.id}/`, formData, { 
               headers: { 
                   'Authorization': `Token ${localStorage.getItem('token')}`,
-                  'Content-Type': 'multipart/form-data' // Forzamos multipart form data
+                  'Content-Type': undefined 
               } 
           }); 
           
@@ -167,8 +167,8 @@ function Comunidad() {
       if(archivoImagenPost) fd.append('imagen', archivoImagenPost);
       if(archivoVideoPost) fd.append('video', archivoVideoPost); 
 
-      // También corregimos aquí para posts con imágenes
-      try { await api.post('/api/foro/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': 'multipart/form-data' } }); 
+      // ✅ También corregido aquí
+      try { await api.post('/api/foro/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': undefined } }); 
       setOpenPost(false); setArchivoImagenPost(null); setArchivoVideoPost(null); cargarDatos(); } catch(e){ alert("Error al publicar"); } 
   };
 
@@ -179,12 +179,12 @@ function Comunidad() {
       if(archivoImagenQueja) fd.append('imagen', archivoImagenQueja);
       if(archivoVideoQueja) fd.append('video', archivoVideoQueja);
 
-      // También corregimos aquí para quejas con imágenes
-      try { await api.post('/api/quejas/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': 'multipart/form-data' } }); 
+      // ✅ También corregido aquí
+      try { await api.post('/api/quejas/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': undefined } }); 
       setOpenQueja(false); setArchivoImagenQueja(null); setArchivoVideoQueja(null); alert("Queja Enviada"); cargarDatos(); } catch(e){ alert("Error al enviar queja"); } 
   };
 
-  // Helper para URL de imagen
+  // Helper para URL de imagen segura
   const getImagenUrl = () => {
       if (!infoComunidad?.imagen_portada) return 'none';
       

@@ -5,7 +5,7 @@ from .serializers import CasaSerializer, FraccionamientoSerializer, CalleSeriali
 
 class FraccionamientoViewSet(viewsets.ModelViewSet):
     serializer_class = FraccionamientoSerializer
-    # ✅ VITAL: Esto habilita la recepción de archivos (fotos)
+    # ✅ HABILITAMOS LA RECEPCIÓN DE ARCHIVOS
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_queryset(self):

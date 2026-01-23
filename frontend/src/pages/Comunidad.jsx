@@ -38,7 +38,7 @@ function Comunidad() {
   const [fotoHeader, setFotoHeader] = useState(null);
   const [previewHeader, setPreviewHeader] = useState(null);
   
-  // Estado para romper el caché de la imagen y que se actualice al instante
+  // Estado para romper el caché de la imagen
   const [cacheBuster, setCacheBuster] = useState(Date.now());
 
   // Encuestas
@@ -68,11 +68,6 @@ function Comunidad() {
   
   const isAdmin = userData?.is_superuser || (userRol && (userRol.toLowerCase().includes('admin') || userRol.toLowerCase().includes('guardia')));
 
-  // Helper para construir la URL de la imagen
-  const getBaseUrl = () => {
-      return import.meta.env.VITE_API_URL || 'https://admin-fraccionamientos-production.up.railway.app';
-  };
-
   const handleVolver = () => {
     if (userData?.is_superuser === true || (userRol && userRol.toLowerCase().includes('admin'))) {
         navigate('/admin-panel');
@@ -92,7 +87,7 @@ function Comunidad() {
         const listaFracc = resFracc.data.results || resFracc.data;
         if (listaFracc && listaFracc.length > 0) {
             setInfoComunidad(listaFracc[0]);
-            // Actualizamos el cacheBuster para recargar la imagen si cambió
+            // Actualizamos el cacheBuster para forzar recarga de imagen
             setCacheBuster(Date.now());
         }
 
@@ -130,21 +125,25 @@ function Comunidad() {
 
   const handleOpenEditHeader = () => { if(infoComunidad) { setFormHeader({ titulo: infoComunidad.titulo_header || infoComunidad.nombre }); setPreviewHeader(infoComunidad.imagen_portada); } setOpenEditHeader(true); };
   
+  // ✅ FUNCIÓN CORREGIDA: "Desbloqueo" de Axios
   const handleSaveHeader = async () => {
       if(!infoComunidad) return; 
       
       const formData = new FormData();
       formData.append('titulo_header', formHeader.titulo); 
       
-      // Solo agregamos la foto si se seleccionó una nueva
       if(fotoHeader) {
           formData.append('imagen_portada', fotoHeader);
       }
       
       try { 
-          // ✅ CORRECTO: No enviamos Content-Type manual, Axios lo maneja
+          // 👇 ESTO ES LO QUE ARREGLA EL PROBLEMA
+          // Al poner 'undefined', forzamos a que el navegador ponga el borde correcto para archivos
           await api.patch(`/api/fraccionamientos/${infoComunidad.id}/`, formData, { 
-              headers: { Authorization: `Token ${localStorage.getItem('token')}` } 
+              headers: { 
+                  'Authorization': `Token ${localStorage.getItem('token')}`,
+                  'Content-Type': undefined 
+              } 
           }); 
           
           alert("Portada actualizada correctamente"); 
@@ -152,7 +151,7 @@ function Comunidad() {
           cargarDatos(); 
       } catch(e) { 
           console.error(e);
-          alert("Error al guardar. Verifica la conexión."); 
+          alert("Error al subir la imagen. Intenta nuevamente."); 
       }
   };
 
@@ -168,7 +167,7 @@ function Comunidad() {
       if(archivoImagenPost) fd.append('imagen', archivoImagenPost);
       if(archivoVideoPost) fd.append('video', archivoVideoPost); 
 
-      try { await api.post('/api/foro/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type':'multipart/form-data' } }); 
+      try { await api.post('/api/foro/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': undefined } }); 
       setOpenPost(false); setArchivoImagenPost(null); setArchivoVideoPost(null); cargarDatos(); } catch(e){ alert("Error al publicar"); } 
   };
 
@@ -179,23 +178,18 @@ function Comunidad() {
       if(archivoImagenQueja) fd.append('imagen', archivoImagenQueja);
       if(archivoVideoQueja) fd.append('video', archivoVideoQueja);
 
-      try { await api.post('/api/quejas/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type':'multipart/form-data' } }); 
+      try { await api.post('/api/quejas/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': undefined } }); 
       setOpenQueja(false); setArchivoImagenQueja(null); setArchivoVideoQueja(null); alert("Queja Enviada"); cargarDatos(); } catch(e){ alert("Error al enviar queja"); } 
   };
 
-  // ✅ Función para obtener la URL correcta y evitar caché
+  // Helper para URL de imagen
   const getImagenUrl = () => {
       if (!infoComunidad?.imagen_portada) return 'none';
-      
       let url = infoComunidad.imagen_portada;
-      
-      // Si viene relativa, le pegamos el dominio del backend
       if (!url.startsWith('http')) {
-          const baseUrl = getBaseUrl();
+          const baseUrl = import.meta.env.VITE_API_URL || 'https://admin-fraccionamientos-production.up.railway.app';
           url = `${baseUrl.replace(/\/$/, '')}${url.startsWith('/') ? '' : '/'}${url}`;
       }
-
-      // Agregamos parámetro para romper caché
       return `url(${url}?v=${cacheBuster})`;
   };
 
@@ -211,7 +205,8 @@ function Comunidad() {
             backgroundImage: getImagenUrl(), 
             backgroundSize: 'cover', 
             backgroundPosition: 'center', 
-            p: 4, pt: 8, pb: 8, boxShadow: 3 
+            p: 4, pt: 8, pb: 8, 
+            boxShadow: 3 
         }}
       >
           <Box sx={{position:'absolute', top:0, left:0, width:'100%', height:'100%', bgcolor:'rgba(0,0,0,0.5)'}} />

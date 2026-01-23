@@ -127,33 +127,30 @@ function Comunidad() {
   // ✅ FUNCIÓN CORREGIDA: Sin Content-Type manual
   const handleSaveHeader = async () => {
       if(!infoComunidad) return; 
-      
       const formData = new FormData();
       formData.append('titulo_header', formHeader.titulo); 
       
-      // Solo agregamos la foto si el usuario seleccionó una nueva
+      // Solo si hay foto nueva la agregamos
       if(fotoHeader) {
           formData.append('imagen_portada', fotoHeader);
       }
       
       try { 
-          // 👇 AQUÍ ESTÁ EL CAMBIO CLAVE: No ponemos 'Content-Type': 'multipart/form-data'
+          // 👇 OJO AQUÍ: Solo mandamos Authorization. NO mandamos 'Content-Type'
           await api.patch(`/api/fraccionamientos/${infoComunidad.id}/`, formData, { 
               headers: { Authorization: `Token ${localStorage.getItem('token')}` } 
           }); 
           
-          alert("Portada actualizada con éxito"); 
+          alert("Portada actualizada"); 
           setOpenEditHeader(false); 
-          
-          // Forzamos la recarga visual
           cargarDatos(); 
       } catch(e) { 
           console.error(e);
-          alert("Error al guardar. Verifica que el archivo sea una imagen válida."); 
+          alert("Error al subir la imagen"); 
       }
-  };
+   };
 
-  const handleOpcionChange = (i,v) => { const n=[...opcionesDinamicas]; n[i]=v; setOpcionesDinamicas(n); };
+  function handleOpcionChange(i, v) { const n = [...opcionesDinamicas]; n[i] = v; setOpcionesDinamicas(n); }
   const crearEncuesta = async () => { try { await api.post('/api/encuestas/', { titulo: nuevaEncuesta.titulo, descripcion: nuevaEncuesta.descripcion, opciones: opcionesDinamicas }, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); setOpenEncuesta(false); cargarDatos(); } catch(e){ alert("Error"); } };
   const votar = async (eId, oId) => { try { await api.post(`/api/encuestas/${eId}/votar/`, { opcion_id: oId }, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); alert("Voto OK"); cargarDatos(); } catch(e){alert("Error");} };
   

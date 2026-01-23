@@ -2,8 +2,7 @@ from rest_framework import serializers
 from .models import Fraccionamiento, Casa, Calle
 
 class FraccionamientoSerializer(serializers.ModelSerializer):
-    # 👇 ESTAS LÍNEAS SON LA CLAVE: 
-    # Permiten recibir archivos de imagen o dejarlos vacíos si no se cambian
+    # 👇 ESTO ES LO NUEVO: Permite recibir la imagen correctamente
     imagen_portada = serializers.ImageField(required=False, allow_null=True)
     logo = serializers.ImageField(required=False, allow_null=True)
 
@@ -19,7 +18,7 @@ class CalleSerializer(serializers.ModelSerializer):
 class CasaSerializer(serializers.ModelSerializer):
     calle_nombre = serializers.ReadOnlyField(source='calle.nombre')
     
-    # Campos calculados (Nombre, Teléfono y Email)
+    # Campos calculados
     propietario_nombre = serializers.StringRelatedField(source='propietario', read_only=True)
     propietario_id = serializers.PrimaryKeyRelatedField(source='propietario', read_only=True)
     telefono_propietario = serializers.SerializerMethodField() 

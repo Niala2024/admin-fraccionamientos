@@ -5,7 +5,7 @@ from .serializers import CasaSerializer, FraccionamientoSerializer, CalleSeriali
 
 class FraccionamientoViewSet(viewsets.ModelViewSet):
     serializer_class = FraccionamientoSerializer
-    # 👇 ESTA LÍNEA PERMITE SUBIR ARCHIVOS E IMÁGENES
+    # 👇 ESTO ES LO QUE PERMITE LA SUBIDA DE ARCHIVOS
     parser_classes = (MultiPartParser, FormParser, JSONParser)
 
     def get_queryset(self):
@@ -13,11 +13,11 @@ class FraccionamientoViewSet(viewsets.ModelViewSet):
         if user.is_superuser:
             return Fraccionamiento.objects.all().order_by('nombre')
         
-        # Verificamos si es administrador
+        # Si es administrador de un fraccionamiento
         if hasattr(user, 'fraccionamiento_administrado') and user.fraccionamiento_administrado:
             return Fraccionamiento.objects.filter(id=user.fraccionamiento_administrado.id).order_by('nombre')
             
-        # Verificamos si es residente
+        # Si es residente
         if hasattr(user, 'casa') and user.casa:
             return Fraccionamiento.objects.filter(id=user.casa.fraccionamiento.id).order_by('nombre')
             

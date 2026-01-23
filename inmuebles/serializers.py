@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import Fraccionamiento, Casa, Calle
 
 class FraccionamientoSerializer(serializers.ModelSerializer):
-    # 👇 ESTO ES LO NUEVO: Permite recibir la imagen correctamente
+    # 👇 ESTA LÍNEA ES OBLIGATORIA PARA QUE GUARDE LA FOTO
     imagen_portada = serializers.ImageField(required=False, allow_null=True)
     logo = serializers.ImageField(required=False, allow_null=True)
 

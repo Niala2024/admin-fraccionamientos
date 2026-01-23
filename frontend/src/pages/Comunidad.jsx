@@ -21,6 +21,12 @@ import { Chart } from "react-google-charts";
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axiosConfig'; 
 
+// 👇 1. IMPORTA TU IMAGEN AQUÍ
+// Asegúrate de poner la foto en: frontend/src/assets/portada.jpg
+import imagenPortada from '../assets/portada.jpg'; 
+// Si no tienes imagen aún, usa esta línea temporalmente para probar:
+// const imagenPortada = "https://images.unsplash.com/photo-1558036117-15d82a90b9b1?auto=format&fit=crop&w=1920&q=80";
+
 function Comunidad() {
   const navigate = useNavigate();
   const [tabIndex, setTabIndex] = useState(0);
@@ -32,33 +38,26 @@ function Comunidad() {
   const [quejas, setQuejas] = useState([]);
   const [avisos, setAvisos] = useState([]); 
 
-  // Header
+  // Header (Solo Título)
   const [openEditHeader, setOpenEditHeader] = useState(false);
   const [formHeader, setFormHeader] = useState({ titulo: '' });
-  const [fotoHeader, setFotoHeader] = useState(null);
-  const [previewHeader, setPreviewHeader] = useState(null);
-  
-  // Estado para romper el caché de la imagen
-  const [cacheBuster, setCacheBuster] = useState(Date.now());
 
   // Encuestas
   const [openEncuesta, setOpenEncuesta] = useState(false);
   const [nuevaEncuesta, setNuevaEncuesta] = useState({ titulo: '', descripcion: '' });
   const [opcionesDinamicas, setOpcionesDinamicas] = useState(["", ""]); 
   
-  // Post (Foro)
+  // Post y Quejas (Multimedia)
   const [openPost, setOpenPost] = useState(false);
   const [formPost, setFormPost] = useState({ titulo: '', contenido: '', tipo: 'SOCIAL' });
   const [archivoImagenPost, setArchivoImagenPost] = useState(null); 
   const [archivoVideoPost, setArchivoVideoPost] = useState(null);   
 
-  // Quejas
   const [openQueja, setOpenQueja] = useState(false);
   const [formQueja, setFormQueja] = useState({ asunto: '', descripcion: '' });
   const [archivoImagenQueja, setArchivoImagenQueja] = useState(null); 
   const [archivoVideoQueja, setArchivoVideoQueja] = useState(null);   
 
-  // Avisos
   const [openAviso, setOpenAviso] = useState(false);
   const [formAviso, setFormAviso] = useState({ titulo: '', mensaje: '' });
 
@@ -87,8 +86,6 @@ function Comunidad() {
         const listaFracc = resFracc.data.results || resFracc.data;
         if (listaFracc && listaFracc.length > 0) {
             setInfoComunidad(listaFracc[0]);
-            // Forzamos actualización visual de la imagen
-            setCacheBuster(Date.now());
         }
 
         if (tabIndex === 0) { 
@@ -118,40 +115,33 @@ function Comunidad() {
           setOpenAviso(false); setFormAviso({titulo:'', mensaje:''}); cargarDatos(); alert("Aviso publicado");
       } catch(e) { alert("Error al publicar aviso"); }
   };
+  
   const borrarAviso = async (id) => {
       if(!confirm("¿Borrar este aviso?")) return;
       try { await api.delete(`/api/avisos/${id}/`, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); cargarDatos(); } catch(e){ alert("Error"); }
   };
 
-  const handleOpenEditHeader = () => { if(infoComunidad) { setFormHeader({ titulo: infoComunidad.titulo_header || infoComunidad.nombre }); setPreviewHeader(infoComunidad.imagen_portada); } setOpenEditHeader(true); };
+  const handleOpenEditHeader = () => { 
+      if(infoComunidad) { setFormHeader({ titulo: infoComunidad.titulo_header || infoComunidad.nombre }); } 
+      setOpenEditHeader(true); 
+  };
   
-  // ✅ FUNCIÓN CORREGIDA Y BLINDADA
+  // ✅ SOLO GUARDAMOS TEXTO (Mucho más estable)
   const handleSaveHeader = async () => {
       if(!infoComunidad) return; 
-      
       const formData = new FormData();
       formData.append('titulo_header', formHeader.titulo); 
       
-      // Solo agregamos la foto si se seleccionó una nueva
-      if(fotoHeader) {
-          formData.append('imagen_portada', fotoHeader);
-      }
-      
       try { 
-          // 👇 LA CLAVE: 'Content-Type': undefined obliga a Axios a dejar que el navegador ponga el boundary correcto
           await api.patch(`/api/fraccionamientos/${infoComunidad.id}/`, formData, { 
-              headers: { 
-                  'Authorization': `Token ${localStorage.getItem('token')}`,
-                  'Content-Type': undefined 
-              } 
+              headers: { Authorization: `Token ${localStorage.getItem('token')}` } 
           }); 
-          
-          alert("Portada actualizada correctamente"); 
+          alert("Título actualizado correctamente"); 
           setOpenEditHeader(false); 
           cargarDatos(); 
       } catch(e) { 
           console.error(e);
-          alert("Error al subir la imagen. Intenta nuevamente."); 
+          alert("Error al actualizar título"); 
       }
   };
 
@@ -166,8 +156,6 @@ function Comunidad() {
       fd.append('tipo',formPost.tipo); 
       if(archivoImagenPost) fd.append('imagen', archivoImagenPost);
       if(archivoVideoPost) fd.append('video', archivoVideoPost); 
-
-      // ✅ También corregido aquí
       try { await api.post('/api/foro/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': undefined } }); 
       setOpenPost(false); setArchivoImagenPost(null); setArchivoVideoPost(null); cargarDatos(); } catch(e){ alert("Error al publicar"); } 
   };
@@ -178,23 +166,8 @@ function Comunidad() {
       fd.append('descripcion', formQueja.descripcion);
       if(archivoImagenQueja) fd.append('imagen', archivoImagenQueja);
       if(archivoVideoQueja) fd.append('video', archivoVideoQueja);
-
-      // ✅ También corregido aquí
       try { await api.post('/api/quejas/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': undefined } }); 
       setOpenQueja(false); setArchivoImagenQueja(null); setArchivoVideoQueja(null); alert("Queja Enviada"); cargarDatos(); } catch(e){ alert("Error al enviar queja"); } 
-  };
-
-  // Helper para URL de imagen segura
-  const getImagenUrl = () => {
-      if (!infoComunidad?.imagen_portada) return 'none';
-      
-      let url = infoComunidad.imagen_portada;
-      // Si viene relativa, le pegamos el dominio del backend
-      if (!url.startsWith('http')) {
-          const baseUrl = import.meta.env.VITE_API_URL || 'https://admin-fraccionamientos-production.up.railway.app';
-          url = `${baseUrl.replace(/\/$/, '')}${url.startsWith('/') ? '' : '/'}${url}`;
-      }
-      return `url(${url}?v=${cacheBuster})`;
   };
 
   return (
@@ -206,7 +179,8 @@ function Comunidad() {
             position: 'relative', 
             bgcolor: '#4a148c', 
             color: 'white', 
-            backgroundImage: getImagenUrl(), 
+            // ✅ USAMOS LA IMAGEN IMPORTADA DIRECTAMENTE
+            backgroundImage: `url(${imagenPortada})`, 
             backgroundSize: 'cover', 
             backgroundPosition: 'center', 
             p: 4, pt: 8, pb: 8, 
@@ -223,7 +197,8 @@ function Comunidad() {
                           <Typography variant="subtitle1" sx={{opacity:0.9, textShadow: '1px 1px 2px black'}}>Espacio Vecinal</Typography>
                       </Box>
                   </Box>
-                  {isAdmin && <Button variant="contained" color="secondary" startIcon={<EditIcon/>} onClick={handleOpenEditHeader} sx={{mt:{xs:2, md:0}}}>Editar Portada</Button>}
+                  {/* Botón solo edita título */}
+                  {isAdmin && <Button variant="contained" color="secondary" startIcon={<EditIcon/>} onClick={handleOpenEditHeader} sx={{mt:{xs:2, md:0}}}>Editar Título</Button>}
               </Box>
           </Container>
       </Box>
@@ -240,7 +215,7 @@ function Comunidad() {
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         {loading && <LinearProgress sx={{mb:2}} />}
 
-        {/* TAB 0: AVISOS */}
+        {/* CONTENIDO DE TABS... */}
         {tabIndex === 0 && (
             <Grid container spacing={3}>
                 {isAdmin && <Grid item xs={12} textAlign="right"><Button variant="contained" color="warning" startIcon={<CampaignIcon/>} onClick={()=>setOpenAviso(true)}>Nuevo Aviso</Button></Grid>}
@@ -261,8 +236,6 @@ function Comunidad() {
                 ))}
             </Grid>
         )}
-
-        {/* TAB 1: ENCUESTAS */}
         {tabIndex === 1 && (
             <Grid container spacing={3}>
                 {isAdmin && <Grid item xs={12} textAlign="right"><Button variant="contained" color="secondary" startIcon={<AddIcon/>} onClick={()=>setOpenEncuesta(true)}>Nueva Encuesta</Button></Grid>}
@@ -286,8 +259,6 @@ function Comunidad() {
                 })}
             </Grid>
         )}
-
-        {/* TAB 2: FORO (POSTS) */}
         {tabIndex === 2 && (
             <>
                 <Button variant="contained" onClick={() => setOpenPost(true)} sx={{mb:2}}>Publicar Post</Button>
@@ -301,23 +272,13 @@ function Comunidad() {
                             </Box>
                             <Typography variant="h6">{p.titulo}</Typography>
                             <Typography sx={{mb:1}}>{p.contenido}</Typography>
-                            
-                            {/* Mostrar Imagen */}
                             {p.imagen && <CardMedia component="img" image={p.imagen} sx={{height:200, objectFit:'contain', borderRadius:1, mb:1}}/>}
-                            
-                            {/* Mostrar Video */}
-                            {p.video && (
-                                <Box sx={{mt:1}}>
-                                    <video src={p.video} controls style={{width:'100%', maxHeight:'300px', borderRadius:'8px'}} />
-                                </Box>
-                            )}
+                            {p.video && ( <Box sx={{mt:1}}><video src={p.video} controls style={{width:'100%', maxHeight:'300px', borderRadius:'8px'}} /></Box>)}
                         </CardContent>
                     </Card>
                 ))}
             </>
         )}
-
-        {/* TAB 3: QUEJAS */}
         {tabIndex === 3 && (
             <>
                 <Button variant="contained" color="error" onClick={() => setOpenQueja(true)} sx={{mb:2}}>Nueva Queja</Button>
@@ -326,12 +287,10 @@ function Comunidad() {
                         <CardContent>
                             <Box display="flex" justifyContent="space-between"><Typography variant="h6">{q.asunto}</Typography><Chip label={q.estado} size="small" color={q.estado==='RESUELTO'?'success':'warning'}/></Box>
                             <Typography variant="body2" paragraph>{q.descripcion}</Typography>
-                            
                             <Box display="flex" gap={1} flexWrap="wrap">
                                 {q.imagen && <img src={q.imagen} alt="evidencia" style={{height:100, borderRadius:4}} />}
                                 {q.video && <video src={q.video} controls style={{height:100, borderRadius:4}} />}
                             </Box>
-
                             {q.respuesta_admin && <Box sx={{mt:1, p:1, bgcolor:'#e8f5e9'}}><Typography variant="caption" color="success">Respuesta: {q.respuesta_admin}</Typography></Box>}
                         </CardContent>
                     </Card>
@@ -340,68 +299,25 @@ function Comunidad() {
         )}
       </Container>
 
-      {/* --- MODALES --- */}
-
-      {/* EDITAR PORTADA */}
-      <Dialog open={openEditHeader} onClose={()=>setOpenEditHeader(false)}><DialogTitle>Personalizar</DialogTitle><DialogContent><TextField margin="dense" label="Título" fullWidth value={formHeader.titulo} onChange={(e)=>setFormHeader({...formHeader, titulo:e.target.value})} /><Box mt={2}><Button variant="outlined" component="label">Subir Foto<input type="file" hidden accept="image/*" onChange={(e)=>{const f=e.target.files[0];if(f){setFotoHeader(f);setPreviewHeader(URL.createObjectURL(f));}}} /></Button></Box>{previewHeader && <Box mt={2}><img src={previewHeader} style={{width:'100%', maxHeight:150}}/></Box>}</DialogContent><DialogActions><Button onClick={()=>setOpenEditHeader(false)}>Cancelar</Button><Button onClick={handleSaveHeader} variant="contained">Guardar</Button></DialogActions></Dialog>
+      {/* MODALES */}
       
-      {/* NUEVO AVISO */}
-      <Dialog open={openAviso} onClose={()=>setOpenAviso(false)} fullWidth maxWidth="sm">
-          <DialogTitle sx={{bgcolor:'#ff9800', color:'white'}}>Nuevo Aviso General</DialogTitle>
-          <DialogContent sx={{mt:2}}>
-              <TextField label="Título del Aviso" fullWidth value={formAviso.titulo} onChange={(e)=>setFormAviso({...formAviso, titulo:e.target.value})} sx={{mb:2}} />
-              <TextField label="Mensaje" multiline rows={4} fullWidth value={formAviso.mensaje} onChange={(e)=>setFormAviso({...formAviso, mensaje:e.target.value})} />
+      {/* EDITAR TÍTULO (SIN FOTO) */}
+      <Dialog open={openEditHeader} onClose={()=>setOpenEditHeader(false)}>
+          <DialogTitle>Personalizar Título</DialogTitle>
+          <DialogContent>
+              <TextField margin="dense" label="Título del Encabezado" fullWidth value={formHeader.titulo} onChange={(e)=>setFormHeader({...formHeader, titulo:e.target.value})} />
           </DialogContent>
-          <DialogActions><Button onClick={()=>setOpenAviso(false)}>Cancelar</Button><Button onClick={crearAviso} variant="contained" color="warning">Publicar</Button></DialogActions>
+          <DialogActions>
+              <Button onClick={()=>setOpenEditHeader(false)}>Cancelar</Button>
+              <Button onClick={handleSaveHeader} variant="contained">Guardar</Button>
+          </DialogActions>
       </Dialog>
-
-      {/* NUEVA ENCUESTA */}
+      
+      {/* RESTO DE MODALES IGUALES... */}
+      <Dialog open={openAviso} onClose={()=>setOpenAviso(false)} fullWidth maxWidth="sm"><DialogTitle sx={{bgcolor:'#ff9800', color:'white'}}>Nuevo Aviso General</DialogTitle><DialogContent sx={{mt:2}}><TextField label="Título del Aviso" fullWidth value={formAviso.titulo} onChange={(e)=>setFormAviso({...formAviso, titulo:e.target.value})} sx={{mb:2}} /><TextField label="Mensaje" multiline rows={4} fullWidth value={formAviso.mensaje} onChange={(e)=>setFormAviso({...formAviso, mensaje:e.target.value})} /></DialogContent><DialogActions><Button onClick={()=>setOpenAviso(false)}>Cancelar</Button><Button onClick={crearAviso} variant="contained" color="warning">Publicar</Button></DialogActions></Dialog>
       <Dialog open={openEncuesta} onClose={()=>setOpenEncuesta(false)}><DialogTitle>Nueva Encuesta</DialogTitle><DialogContent><TextField fullWidth label="Título" value={nuevaEncuesta.titulo} onChange={(e)=>setNuevaEncuesta({...nuevaEncuesta, titulo:e.target.value})}/><Box mt={1}>{opcionesDinamicas.map((op,i)=><TextField key={i} fullWidth size="small" placeholder={`Opción ${i+1}`} value={op} onChange={(e)=>handleOpcionChange(i,e.target.value)} sx={{mb:1}}/>)}<Button onClick={()=>setOpcionesDinamicas([...opcionesDinamicas,""])}>+ Opción</Button></Box></DialogContent><DialogActions><Button onClick={crearEncuesta}>Publicar</Button></DialogActions></Dialog>
-      
-      {/* NUEVO POST */}
-      <Dialog open={openPost} onClose={()=>setOpenPost(false)} fullWidth maxWidth="sm">
-          <DialogTitle>Nuevo Post</DialogTitle>
-          <DialogContent>
-              <TextField fullWidth label="Título" margin="dense" onChange={(e)=>setFormPost({...formPost, titulo:e.target.value})}/>
-              <TextField fullWidth multiline rows={3} margin="dense" label="Contenido" onChange={(e)=>setFormPost({...formPost, contenido:e.target.value})}/>
-              
-              {/* Botones separados para Foto y Video */}
-              <Box display="flex" gap={2} mt={2}>
-                  <Button variant="outlined" component="label" startIcon={<PhotoCamera/>}>
-                      {archivoImagenPost ? "Foto Seleccionada" : "Foto"}
-                      <input type="file" hidden accept="image/*" onChange={(e)=>setArchivoImagenPost(e.target.files[0])}/>
-                  </Button>
-                  <Button variant="outlined" component="label" startIcon={<VideocamIcon/>}>
-                      {archivoVideoPost ? "Video Seleccionado" : "Video"}
-                      <input type="file" hidden accept="video/*" onChange={(e)=>setArchivoVideoPost(e.target.files[0])}/>
-                  </Button>
-              </Box>
-          </DialogContent>
-          <DialogActions><Button onClick={()=>setOpenPost(false)}>Cancelar</Button><Button onClick={crearPost} variant="contained">Publicar</Button></DialogActions>
-      </Dialog>
-      
-      {/* NUEVA QUEJA */}
-      <Dialog open={openQueja} onClose={()=>setOpenQueja(false)} fullWidth maxWidth="sm">
-          <DialogTitle>Nueva Queja</DialogTitle>
-          <DialogContent>
-              <TextField fullWidth label="Asunto" margin="dense" onChange={(e)=>setFormQueja({...formQueja, asunto:e.target.value})}/>
-              <TextField fullWidth multiline rows={3} margin="dense" label="Detalle de la queja" onChange={(e)=>setFormQueja({...formQueja, descripcion:e.target.value})}/>
-              
-              <Typography variant="caption" display="block" sx={{mt:2, mb:1}}>Evidencia (Opcional):</Typography>
-              <Box display="flex" gap={2}>
-                  <Button variant="outlined" component="label" startIcon={<PhotoCamera/>}>
-                      {archivoImagenQueja ? "Foto Lista" : "Foto"}
-                      <input type="file" hidden accept="image/*" onChange={(e)=>setArchivoImagenQueja(e.target.files[0])}/>
-                  </Button>
-                  <Button variant="outlined" component="label" startIcon={<VideocamIcon/>}>
-                      {archivoVideoQueja ? "Video Listo" : "Video"}
-                      <input type="file" hidden accept="video/*" onChange={(e)=>setArchivoVideoQueja(e.target.files[0])}/>
-                  </Button>
-              </Box>
-          </DialogContent>
-          <DialogActions><Button onClick={()=>setOpenQueja(false)}>Cancelar</Button><Button onClick={crearQueja} variant="contained" color="error">Enviar</Button></DialogActions>
-      </Dialog>
-
+      <Dialog open={openPost} onClose={()=>setOpenPost(false)} fullWidth maxWidth="sm"><DialogTitle>Nuevo Post</DialogTitle><DialogContent><TextField fullWidth label="Título" margin="dense" onChange={(e)=>setFormPost({...formPost, titulo:e.target.value})}/><TextField fullWidth multiline rows={3} margin="dense" label="Contenido" onChange={(e)=>setFormPost({...formPost, contenido:e.target.value})}/><Box display="flex" gap={2} mt={2}><Button variant="outlined" component="label" startIcon={<PhotoCamera/>}>{archivoImagenPost ? "Foto Seleccionada" : "Foto"}<input type="file" hidden accept="image/*" onChange={(e)=>setArchivoImagenPost(e.target.files[0])}/></Button><Button variant="outlined" component="label" startIcon={<VideocamIcon/>}>{archivoVideoPost ? "Video Seleccionado" : "Video"}<input type="file" hidden accept="video/*" onChange={(e)=>setArchivoVideoPost(e.target.files[0])}/></Button></Box></DialogContent><DialogActions><Button onClick={()=>setOpenPost(false)}>Cancelar</Button><Button onClick={crearPost} variant="contained">Publicar</Button></DialogActions></Dialog>
+      <Dialog open={openQueja} onClose={()=>setOpenQueja(false)} fullWidth maxWidth="sm"><DialogTitle>Nueva Queja</DialogTitle><DialogContent><TextField fullWidth label="Asunto" margin="dense" onChange={(e)=>setFormQueja({...formQueja, asunto:e.target.value})}/><TextField fullWidth multiline rows={3} margin="dense" label="Detalle de la queja" onChange={(e)=>setFormQueja({...formQueja, descripcion:e.target.value})}/><Typography variant="caption" display="block" sx={{mt:2, mb:1}}>Evidencia (Opcional):</Typography><Box display="flex" gap={2}><Button variant="outlined" component="label" startIcon={<PhotoCamera/>}>{archivoImagenQueja ? "Foto Lista" : "Foto"}<input type="file" hidden accept="image/*" onChange={(e)=>setArchivoImagenQueja(e.target.files[0])}/></Button><Button variant="outlined" component="label" startIcon={<VideocamIcon/>}>{archivoVideoQueja ? "Video Listo" : "Video"}<input type="file" hidden accept="video/*" onChange={(e)=>setArchivoVideoQueja(e.target.files[0])}/></Button></Box></DialogContent><DialogActions><Button onClick={()=>setOpenQueja(false)}>Cancelar</Button><Button onClick={crearQueja} variant="contained" color="error">Enviar</Button></DialogActions></Dialog>
     </Box>
   );
 }

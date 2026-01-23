@@ -536,6 +536,7 @@ function AdminPanel() {
           <DialogActions><Button onClick={() => setOpenServicios(false)}>Cerrar</Button></DialogActions>
       </Dialog>
 
+      {/* ✅ MODAL BITÁCORA DE NOVEDADES (ADMIN) */}
       <Dialog open={openNovedades} onClose={() => setOpenNovedades(false)} fullWidth maxWidth="md">
           <DialogTitle sx={{ bgcolor: '#f57c00', color: 'white', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <Box display="flex" alignItems="center" gap={1}><AssignmentIcon/> Bitácora de Operaciones</Box>

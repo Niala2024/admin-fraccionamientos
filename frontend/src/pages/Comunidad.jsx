@@ -37,7 +37,8 @@ function Comunidad() {
   const [formHeader, setFormHeader] = useState({ titulo: '' });
   const [fotoHeader, setFotoHeader] = useState(null);
   const [previewHeader, setPreviewHeader] = useState(null);
-  // ✅ NUEVO: Estado para romper el caché de la imagen
+  
+  // Estado para romper el caché de la imagen y que se actualice al instante
   const [cacheBuster, setCacheBuster] = useState(Date.now());
 
   // Encuestas
@@ -67,6 +68,11 @@ function Comunidad() {
   
   const isAdmin = userData?.is_superuser || (userRol && (userRol.toLowerCase().includes('admin') || userRol.toLowerCase().includes('guardia')));
 
+  // Helper para construir la URL de la imagen
+  const getBaseUrl = () => {
+      return import.meta.env.VITE_API_URL || 'https://admin-fraccionamientos-production.up.railway.app';
+  };
+
   const handleVolver = () => {
     if (userData?.is_superuser === true || (userRol && userRol.toLowerCase().includes('admin'))) {
         navigate('/admin-panel');
@@ -86,7 +92,7 @@ function Comunidad() {
         const listaFracc = resFracc.data.results || resFracc.data;
         if (listaFracc && listaFracc.length > 0) {
             setInfoComunidad(listaFracc[0]);
-            // ✅ ACTUALIZAMOS EL CACHÉ AL CARGAR DATOS NUEVOS
+            // Actualizamos el cacheBuster para recargar la imagen si cambió
             setCacheBuster(Date.now());
         }
 
@@ -124,33 +130,33 @@ function Comunidad() {
 
   const handleOpenEditHeader = () => { if(infoComunidad) { setFormHeader({ titulo: infoComunidad.titulo_header || infoComunidad.nombre }); setPreviewHeader(infoComunidad.imagen_portada); } setOpenEditHeader(true); };
   
-  // ✅ FUNCIÓN CORREGIDA: Sin Content-Type manual
   const handleSaveHeader = async () => {
       if(!infoComunidad) return; 
+      
       const formData = new FormData();
       formData.append('titulo_header', formHeader.titulo); 
       
-      // Solo si hay foto nueva la agregamos
+      // Solo agregamos la foto si se seleccionó una nueva
       if(fotoHeader) {
           formData.append('imagen_portada', fotoHeader);
       }
       
       try { 
-          // 👇 OJO AQUÍ: Solo mandamos Authorization. NO mandamos 'Content-Type'
+          // ✅ CORRECTO: No enviamos Content-Type manual, Axios lo maneja
           await api.patch(`/api/fraccionamientos/${infoComunidad.id}/`, formData, { 
               headers: { Authorization: `Token ${localStorage.getItem('token')}` } 
           }); 
           
-          alert("Portada actualizada"); 
+          alert("Portada actualizada correctamente"); 
           setOpenEditHeader(false); 
           cargarDatos(); 
       } catch(e) { 
           console.error(e);
-          alert("Error al subir la imagen"); 
+          alert("Error al guardar. Verifica la conexión."); 
       }
-   };
+  };
 
-  function handleOpcionChange(i, v) { const n = [...opcionesDinamicas]; n[i] = v; setOpcionesDinamicas(n); }
+  const handleOpcionChange = (i,v) => { const n=[...opcionesDinamicas]; n[i]=v; setOpcionesDinamicas(n); };
   const crearEncuesta = async () => { try { await api.post('/api/encuestas/', { titulo: nuevaEncuesta.titulo, descripcion: nuevaEncuesta.descripcion, opciones: opcionesDinamicas }, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); setOpenEncuesta(false); cargarDatos(); } catch(e){ alert("Error"); } };
   const votar = async (eId, oId) => { try { await api.post(`/api/encuestas/${eId}/votar/`, { opcion_id: oId }, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); alert("Voto OK"); cargarDatos(); } catch(e){alert("Error");} };
   
@@ -177,19 +183,19 @@ function Comunidad() {
       setOpenQueja(false); setArchivoImagenQueja(null); setArchivoVideoQueja(null); alert("Queja Enviada"); cargarDatos(); } catch(e){ alert("Error al enviar queja"); } 
   };
 
-  // ✅ FUNCIÓN INTELIGENTE PARA LA IMAGEN
+  // ✅ Función para obtener la URL correcta y evitar caché
   const getImagenUrl = () => {
       if (!infoComunidad?.imagen_portada) return 'none';
       
       let url = infoComunidad.imagen_portada;
       
-      // Si la URL es relativa, le pegamos el dominio del servidor
+      // Si viene relativa, le pegamos el dominio del backend
       if (!url.startsWith('http')) {
-          const baseUrl = import.meta.env.VITE_API_URL || 'https://admin-fraccionamientos-production.up.railway.app';
+          const baseUrl = getBaseUrl();
           url = `${baseUrl.replace(/\/$/, '')}${url.startsWith('/') ? '' : '/'}${url}`;
       }
 
-      // Agregamos el "rompe-caché"
+      // Agregamos parámetro para romper caché
       return `url(${url}?v=${cacheBuster})`;
   };
 
@@ -202,11 +208,10 @@ function Comunidad() {
             position: 'relative', 
             bgcolor: '#4a148c', 
             color: 'white', 
-            backgroundImage: getImagenUrl(), // ✅ USAMOS LA NUEVA FUNCIÓN
+            backgroundImage: getImagenUrl(), 
             backgroundSize: 'cover', 
             backgroundPosition: 'center', 
-            p: 4, pt: 8, pb: 8, 
-            boxShadow: 3 
+            p: 4, pt: 8, pb: 8, boxShadow: 3 
         }}
       >
           <Box sx={{position:'absolute', top:0, left:0, width:'100%', height:'100%', bgcolor:'rgba(0,0,0,0.5)'}} />

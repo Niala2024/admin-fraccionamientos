@@ -40,7 +40,7 @@ import PolicyIcon from '@mui/icons-material/Policy';
 import BuildIcon from '@mui/icons-material/Build'; 
 import AssignmentIcon from '@mui/icons-material/Assignment'; 
 import PrintIcon from '@mui/icons-material/Print'; 
-import KeyIcon from '@mui/icons-material/Key'; // ✅ Nuevo icono para password
+import KeyIcon from '@mui/icons-material/Key'; // ✅ ICONO DE LLAVE PARA PASSWORD
 
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axiosConfig'; 
@@ -84,7 +84,7 @@ function AdminPanel() {
   const [openServicios, setOpenServicios] = useState(false); 
   const [openNovedades, setOpenNovedades] = useState(false);
   
-  // ✅ NUEVO MODAL PARA CAMBIAR PASSWORD
+  // ✅ MODAL PASSWORD
   const [openPassword, setOpenPassword] = useState(false);
   const [passwordData, setPasswordData] = useState({ id: null, username: '', newPassword: '' });
 
@@ -122,11 +122,10 @@ function AdminPanel() {
   const [conceptoExtra, setConceptoExtra] = useState('');
   const [formCasa, setFormCasa] = useState({ calle_id: '', numero: '', saldo: 0 });
   
-  // Usuarios (Ya no incluye password aquí para evitar enviarlo vacío por accidente)
+  // Usuarios
   const [formUser, setFormUser] = useState({ id: null, username: '', email: '', nombre: '', apellido: '', telefono: '', casa_id: '' });
   const [isEditingUser, setIsEditingUser] = useState(false);
-  // Estado temporal solo para cuando se CREA un usuario nuevo (ahí sí pedimos password)
-  const [newUserPassword, setNewUserPassword] = useState('');
+  const [newUserPassword, setNewUserPassword] = useState(''); // Solo para usuario nuevo
   
   // Egresos
   const [formEgreso, setFormEgreso] = useState({ tipo_id: '', monto: '', descripcion: '' });
@@ -335,6 +334,7 @@ function AdminPanel() {
     { field: 'acciones', headerName: 'Contacto', width: 150, renderCell: (params) => { const datos = params.row || params; return datos.propietario ? (<Box><IconButton color="success" onClick={() => enviarWhatsApp(datos.telefono_propietario, datos.propietario_nombre, datos.saldo_pendiente)}><WhatsAppIcon /></IconButton><IconButton color="primary" onClick={() => handleAbrirEmail(datos.email_propietario, datos.propietario_nombre)}><EmailIcon /></IconButton></Box>) : null; } }
   ];
 
+  // ✅ COLUMNAS DE USUARIO CON BOTÓN DE LLAVE
   const columnasUsuarios = [
     { field: 'id', headerName: 'ID', width: 70 },
     { field: 'nombre_completo', headerName: 'Nombre Completo', width: 200 },
@@ -356,7 +356,7 @@ function AdminPanel() {
   const cargarPersonal = async () => { try { const res = await api.get('/api/trabajadores/', { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } }); setListaTrabajadores(res.data.results || res.data); } catch(e){} };
   const handleSubirCSV = async () => { if(!archivoCSV) return enqueueSnackbar("Selecciona archivo", {variant:'warning'}); const fd=new FormData(); fd.append('file',archivoCSV); setLoading(true); try{ const r=await api.post('/api/usuarios/importar_masivo/', fd, { headers:{'Authorization':`Token ${localStorage.getItem('token')}`,'Content-Type':'multipart/form-data'}}); setResultadoImportacion(r.data); cargarDatos(); setArchivoCSV(null); enqueueSnackbar("Proceso terminado", {variant:'info'}); }catch(e){ enqueueSnackbar("Error", {variant:'error'}); } setLoading(false); };
   
-  // ✅ FUNCIÓN CORREGIDA Y BLINDADA
+  // ✅ FUNCIÓN CORREGIDA Y BLINDADA PARA GUARDAR USUARIO
   const handleGuardarUsuario = async () => { 
       const token = localStorage.getItem('token'); 
       
@@ -536,7 +536,6 @@ function AdminPanel() {
           <DialogActions><Button onClick={() => setOpenServicios(false)}>Cerrar</Button></DialogActions>
       </Dialog>
 
-      {/* ✅ MODAL BITÁCORA DE NOVEDADES (ADMIN) */}
       <Dialog open={openNovedades} onClose={() => setOpenNovedades(false)} fullWidth maxWidth="md">
           <DialogTitle sx={{ bgcolor: '#f57c00', color: 'white', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <Box display="flex" alignItems="center" gap={1}><AssignmentIcon/> Bitácora de Operaciones</Box>
@@ -590,10 +589,10 @@ function AdminPanel() {
       <Dialog open={openCuota} onClose={() => setOpenCuota(false)}><DialogTitle>💲 Cuota de Mantenimiento</DialogTitle><DialogContent><Typography variant="body2" sx={{ mb: 2, mt: 1 }}>Define el monto mensual oficial.</Typography><TextField autoFocus margin="dense" label="Monto Mensual ($)" type="number" fullWidth value={nuevaCuota} onChange={(e) => setNuevaCuota(e.target.value)} /></DialogContent><DialogActions><Button onClick={() => setOpenCuota(false)}>Cancelar</Button><Button onClick={handleActualizarCuota} variant="contained" color="success">Actualizar Tarifa</Button></DialogActions></Dialog>
       <Dialog open={openEmail} onClose={() => setOpenEmail(false)} fullWidth maxWidth="sm"><DialogTitle>✉️ Enviar Correo a {emailData.nombre}</DialogTitle><DialogContent><TextField label="Para" fullWidth margin="dense" value={emailData.para} disabled /><TextField label="Asunto" fullWidth margin="dense" value={emailData.asunto} onChange={(e) => setEmailData({...emailData, asunto: e.target.value})} /><TextField label="Mensaje" fullWidth multiline rows={6} margin="dense" value={emailData.mensaje} onChange={(e) => setEmailData({...emailData, mensaje: e.target.value})} /></DialogContent><DialogActions><Button onClick={() => setOpenEmail(false)}>Cancelar</Button><Button onClick={handleEnviarEmailReal} variant="contained" color="primary" startIcon={<EmailIcon/>}>Enviar</Button></DialogActions></Dialog>
       
-      {/* ✅ MODAL DE DIRECTORIO DE USUARIOS */}
+      {/* ✅ MODAL DE DIRECTORIO DE USUARIOS (CON LLAVE) */}
       <Dialog open={openDirectorio} onClose={() => setOpenDirectorio(false)} fullWidth maxWidth="lg"><DialogTitle sx={{bgcolor: '#2e7d32', color: 'white'}}>Directorio de Usuarios</DialogTitle><DialogContent><Tabs value={tabDirectorio} onChange={(e,v)=>setTabDirectorio(v)} centered sx={{mb:2}}><Tab label="Residentes" /><Tab label="Guardias / Staff" /></Tabs><Box sx={{ height: 400, width: '100%' }}><DataGrid rows={usuarios.filter(u => tabDirectorio === 0 ? (!u.rol || u.rol.toLowerCase().includes('residente')) : (u.rol && u.rol.toLowerCase().includes('guardia')))} columns={columnasUsuarios} pageSize={5} /></Box></DialogContent><DialogActions><Button onClick={() => setOpenDirectorio(false)}>Cerrar</Button></DialogActions></Dialog>
       
-      {/* ✅ MODAL EDITAR / CREAR USUARIO (SIN CAMPO PASSWORD) */}
+      {/* ✅ MODAL EDITAR / CREAR USUARIO (SIN CAMPO PASSWORD CUANDO SE EDITA) */}
       <Dialog open={openUsuario} onClose={()=>setOpenUsuario(false)}>
           <DialogTitle>{isEditingUser ? 'Editar Usuario' : 'Nuevo Usuario'}</DialogTitle>
           <DialogContent>
@@ -613,7 +612,7 @@ function AdminPanel() {
           <DialogActions><Button onClick={()=>setOpenUsuario(false)}>Cancelar</Button><Button onClick={handleGuardarUsuario} variant="contained">{isEditingUser ? 'Actualizar' : 'Guardar'}</Button></DialogActions>
       </Dialog>
       
-      {/* ✅ NUEVO MODAL PARA CAMBIAR PASSWORD ESPECÍFICO */}
+      {/* ✅ NUEVO MODAL PARA CAMBIAR PASSWORD */}
       <Dialog open={openPassword} onClose={()=>setOpenPassword(false)}>
           <DialogTitle>Cambiar Contraseña: {passwordData.username}</DialogTitle>
           <DialogContent>

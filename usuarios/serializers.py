@@ -1,71 +1,81 @@
 from rest_framework import serializers
-from .models import Usuario
+from django.contrib.auth.models import User
 from inmuebles.models import Casa 
 
 class UsuarioSerializer(serializers.ModelSerializer):
+    # 👇 ESTO ES LO QUE ARREGLA EL ERROR 400: allow_null=True
+    casa_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    
+    # Campo extra para mostrar el nombre completo en el frontend
     nombre_completo = serializers.SerializerMethodField()
-   # 👇 AGREGA ESTO DENTRO DE LA CLASE UsuarioSerializer
-    def to_representation(self, instance):
-        """
-        Esto se ejecuta cuando enviamos los datos al Frontend.
-        Buscamos la casa del usuario y la agregamos al JSON.
-        """
-        ret = super().to_representation(instance)
-        
-        # Buscar la primera casa donde este usuario aparece como residente
-        # Asegúrate de tener importado el modelo Casa al inicio del archivo
-        casa = Casa.objects.filter(residentes=instance).first()
-        
-        if casa:
-            ret['casa_id'] = casa.id  # Enviamos el ID para que el Select lo reconozca
-            ret['casa_info'] = f"{casa.calle} #{casa.numero_exterior}" # Opcional: Para mostrar texto si quieres
-        else:
-            ret['casa_id'] = "" # Enviamos vacío si no tiene casa
-
-        return ret 
-    # Campo especial solo para escritura (al crear/editar usuario)
-    casa_id = serializers.IntegerField(write_only=True, required=False)
 
     class Meta:
-        model = Usuario
-        # ✅ CORRECCIÓN: Quitamos 'casa' de aquí. Esto soluciona la tabla vacía.
+        model = User
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name', 
-            'telefono', 'rol', 'nombre_completo', 
-            'is_staff', 'is_superuser', 'casa_id'
+            'id', 'username', 'first_name', 'last_name', 'email', 'rol', 
+            'password', 'casa_id', 'telefono', 'nombre_completo', 'is_staff', 'is_superuser'
         ]
         extra_kwargs = {'password': {'write_only': True}}
 
     def get_nombre_completo(self, obj):
-        if obj.first_name and obj.last_name:
-            return f"{obj.first_name} {obj.last_name}"
-        return obj.first_name or obj.username
+        return f"{obj.first_name} {obj.last_name}".strip() or obj.username
+
+    def to_representation(self, instance):
+        """ Envía al Frontend la info de la casa actual (o vacío si es guardia) """
+        ret = super().to_representation(instance)
+        try:
+            casa = Casa.objects.filter(residentes=instance).first()
+            if casa:
+                ret['casa_id'] = casa.id
+                ret['casa_info'] = f"{casa.calle} #{casa.numero_exterior}"
+            else:
+                ret['casa_id'] = "" # Importante para que el frontend no falle
+        except Exception:
+            ret['casa_id'] = ""
+        return ret
 
     def create(self, validated_data):
-        # 1. Sacamos el ID de la casa si viene
+        password = validated_data.pop('password', None)
         casa_id = validated_data.pop('casa_id', None)
         
-        # 2. Creamos el usuario
-        user = Usuario(**validated_data)
-        user.set_password(validated_data['password'])
+        user = User(**validated_data)
+        if password:
+            user.set_password(password)
         user.save()
 
-        # 3. Si eligieron casa, vinculamos la casa a este nuevo usuario
+        # Si mandaron casa, la asignamos
         if casa_id:
             try:
                 casa = Casa.objects.get(id=casa_id)
-                casa.propietario = user
-                casa.save()
+                casa.residentes.add(user)
             except Casa.DoesNotExist:
                 pass
         
         return user
-    
+
     def update(self, instance, validated_data):
         password = validated_data.pop('password', None)
-        casa_id = validated_data.pop('casa_id', None)
         
-        # Actualizar campos normales
+        # Verificar si 'casa_id' viene en la petición (puede ser un número o None)
+        if 'casa_id' in validated_data:
+            casa_id = validated_data.pop('casa_id') # Sacamos el valor
+            
+            # 1. LIMPIEZA: Quitamos al usuario de cualquier casa anterior
+            casas_anteriores = Casa.objects.filter(residentes=instance)
+            for c in casas_anteriores:
+                c.residentes.remove(instance)
+            
+            # 2. ASIGNACIÓN: Si casa_id tiene valor (es Residente), lo agregamos.
+            # Si es None (Guardia), no hacemos nada y se queda sin casa (¡Correcto!)
+            if casa_id is not None:
+                try:
+                    nueva_casa = Casa.objects.get(id=casa_id)
+                    nueva_casa.residentes.add(instance)
+                except Casa.DoesNotExist:
+                    pass 
+
+        # Actualizar resto de campos
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         
@@ -73,21 +83,4 @@ class UsuarioSerializer(serializers.ModelSerializer):
             instance.set_password(password)
         
         instance.save()
-
-        # --- AQUÍ ESTABA EL ERROR, ESTA ES LA CORRECCIÓN ---
-        if casa_id is not None:
-            # 1. Quitar al usuario de casas anteriores (usando 'residentes', NO 'propietario')
-            casas_anteriores = Casa.objects.filter(residentes=instance)
-            for casa_ant in casas_anteriores:
-                casa_ant.residentes.remove(instance)
-            
-            # 2. Asignar a la nueva casa (si se eligió una)
-            if casa_id:  # Si casa_id no está vacío
-                try:
-                    nueva_casa = Casa.objects.get(id=casa_id)
-                    nueva_casa.residentes.add(instance)
-                except Casa.DoesNotExist:
-                    pass # O manejar el error si prefieres
-        # ---------------------------------------------------
-
         return instance

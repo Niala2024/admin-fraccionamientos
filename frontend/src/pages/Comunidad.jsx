@@ -37,7 +37,6 @@ function Comunidad() {
   const [formHeader, setFormHeader] = useState({ titulo: '' });
   const [fotoHeader, setFotoHeader] = useState(null);
   const [previewHeader, setPreviewHeader] = useState(null);
-  
   // ✅ NUEVO: Estado para romper el caché de la imagen
   const [cacheBuster, setCacheBuster] = useState(Date.now());
 
@@ -125,18 +124,33 @@ function Comunidad() {
 
   const handleOpenEditHeader = () => { if(infoComunidad) { setFormHeader({ titulo: infoComunidad.titulo_header || infoComunidad.nombre }); setPreviewHeader(infoComunidad.imagen_portada); } setOpenEditHeader(true); };
   
+  // ✅ FUNCIÓN CORREGIDA: Sin Content-Type manual
   const handleSaveHeader = async () => {
       if(!infoComunidad) return; 
+      
       const formData = new FormData();
       formData.append('titulo_header', formHeader.titulo); 
-      if(fotoHeader) formData.append('imagen_portada', fotoHeader);
+      
+      // Solo agregamos la foto si el usuario seleccionó una nueva
+      if(fotoHeader) {
+          formData.append('imagen_portada', fotoHeader);
+      }
       
       try { 
-          await api.patch(`/api/fraccionamientos/${infoComunidad.id}/`, formData, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': 'multipart/form-data' } }); 
-          alert("Portada actualizada"); 
+          // 👇 AQUÍ ESTÁ EL CAMBIO CLAVE: No ponemos 'Content-Type': 'multipart/form-data'
+          await api.patch(`/api/fraccionamientos/${infoComunidad.id}/`, formData, { 
+              headers: { Authorization: `Token ${localStorage.getItem('token')}` } 
+          }); 
+          
+          alert("Portada actualizada con éxito"); 
           setOpenEditHeader(false); 
-          cargarDatos(); // ✅ ESTO HARÁ QUE LA IMAGEN PARPADEE Y SE ACTUALICE
-      } catch(e) { alert("Error"); }
+          
+          // Forzamos la recarga visual
+          cargarDatos(); 
+      } catch(e) { 
+          console.error(e);
+          alert("Error al guardar. Verifica que el archivo sea una imagen válida."); 
+      }
   };
 
   const handleOpcionChange = (i,v) => { const n=[...opcionesDinamicas]; n[i]=v; setOpcionesDinamicas(n); };

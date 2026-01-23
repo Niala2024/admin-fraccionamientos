@@ -2,6 +2,11 @@ from rest_framework import serializers
 from .models import Fraccionamiento, Casa, Calle
 
 class FraccionamientoSerializer(serializers.ModelSerializer):
+    # 👇 ESTAS LÍNEAS SON LA CLAVE: 
+    # Permiten recibir archivos de imagen o dejarlos vacíos si no se cambian
+    imagen_portada = serializers.ImageField(required=False, allow_null=True)
+    logo = serializers.ImageField(required=False, allow_null=True)
+
     class Meta:
         model = Fraccionamiento
         fields = '__all__'
@@ -14,11 +19,11 @@ class CalleSerializer(serializers.ModelSerializer):
 class CasaSerializer(serializers.ModelSerializer):
     calle_nombre = serializers.ReadOnlyField(source='calle.nombre')
     
-    # Campos calculados (Nombre, Teléfono y AHORA Email)
+    # Campos calculados (Nombre, Teléfono y Email)
     propietario_nombre = serializers.StringRelatedField(source='propietario', read_only=True)
     propietario_id = serializers.PrimaryKeyRelatedField(source='propietario', read_only=True)
     telefono_propietario = serializers.SerializerMethodField() 
-    email_propietario = serializers.SerializerMethodField() # ✅ NUEVO
+    email_propietario = serializers.SerializerMethodField() 
 
     class Meta:
         model = Casa
@@ -36,7 +41,6 @@ class CasaSerializer(serializers.ModelSerializer):
             return residente.telefono 
         return None
 
-    # ✅ FUNCIÓN NUEVA: Obtener el email del residente principal
     def get_email_propietario(self, obj):
         residente = obj.residentes.first()
         if residente:

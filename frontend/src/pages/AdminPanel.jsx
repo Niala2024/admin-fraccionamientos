@@ -40,7 +40,7 @@ import PolicyIcon from '@mui/icons-material/Policy';
 import BuildIcon from '@mui/icons-material/Build'; 
 import AssignmentIcon from '@mui/icons-material/Assignment'; 
 import PrintIcon from '@mui/icons-material/Print'; 
-import KeyIcon from '@mui/icons-material/Key'; // ✅ ICONO DE LLAVE PARA PASSWORD
+import KeyIcon from '@mui/icons-material/Key'; // ✅ ICONO DE LLAVE
 
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axiosConfig'; 

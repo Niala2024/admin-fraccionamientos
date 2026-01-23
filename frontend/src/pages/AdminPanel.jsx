@@ -38,8 +38,9 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import QrCodeScannerIcon from '@mui/icons-material/QrCodeScanner';
 import PolicyIcon from '@mui/icons-material/Policy'; 
 import BuildIcon from '@mui/icons-material/Build'; 
-import AssignmentIcon from '@mui/icons-material/Assignment'; // Icono Bitácora
-import PrintIcon from '@mui/icons-material/Print'; // ✅ ESTA ERA LA IMPORTACIÓN QUE FALTABA
+import AssignmentIcon from '@mui/icons-material/Assignment'; 
+import PrintIcon from '@mui/icons-material/Print'; 
+import KeyIcon from '@mui/icons-material/Key'; // ✅ Nuevo icono para password
 
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axiosConfig'; 
@@ -81,8 +82,12 @@ function AdminPanel() {
   const [openEmail, setOpenEmail] = useState(false);
   const [openScanner, setOpenScanner] = useState(false); 
   const [openServicios, setOpenServicios] = useState(false); 
-  // ✅ ESTADO NOVEDADES
   const [openNovedades, setOpenNovedades] = useState(false);
+  
+  // ✅ NUEVO MODAL PARA CAMBIAR PASSWORD
+  const [openPassword, setOpenPassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({ id: null, username: '', newPassword: '' });
+
   const [fechaNovedades, setFechaNovedades] = useState(new Date().toISOString().split('T')[0]);
   const [listaNovedades, setListaNovedades] = useState([]);
 
@@ -117,9 +122,11 @@ function AdminPanel() {
   const [conceptoExtra, setConceptoExtra] = useState('');
   const [formCasa, setFormCasa] = useState({ calle_id: '', numero: '', saldo: 0 });
   
-  // Usuarios
-  const [formUser, setFormUser] = useState({ id: null, username: '', password: '', email: '', nombre: '', apellido: '', telefono: '', casa_id: '' });
+  // Usuarios (Ya no incluye password aquí para evitar enviarlo vacío por accidente)
+  const [formUser, setFormUser] = useState({ id: null, username: '', email: '', nombre: '', apellido: '', telefono: '', casa_id: '' });
   const [isEditingUser, setIsEditingUser] = useState(false);
+  // Estado temporal solo para cuando se CREA un usuario nuevo (ahí sí pedimos password)
+  const [newUserPassword, setNewUserPassword] = useState('');
   
   // Egresos
   const [formEgreso, setFormEgreso] = useState({ tipo_id: '', monto: '', descripcion: '' });
@@ -182,7 +189,6 @@ function AdminPanel() {
 
   useEffect(() => { cargarDatos(); }, [navigate]);
 
-  // ✅ FUNCIÓN CARGAR NOVEDADES POR FECHA
   const cargarNovedadesDia = async () => {
       if(!fechaNovedades) return;
       try {
@@ -195,13 +201,8 @@ function AdminPanel() {
       }
   };
 
-  useEffect(() => {
-      if (openNovedades) {
-          cargarNovedadesDia();
-      }
-  }, [fechaNovedades, openNovedades]);
+  useEffect(() => { if (openNovedades) cargarNovedadesDia(); }, [fechaNovedades, openNovedades]);
 
-  // ✅ FUNCIÓN IMPRIMIR REPORTE
   const handleImprimirNovedades = () => {
       const printWindow = window.open('', '', 'height=600,width=800');
       printWindow.document.write('<html><head><title>Reporte de Novedades</title>');
@@ -210,11 +211,9 @@ function AdminPanel() {
       printWindow.document.write(`<h1>Bitácora de Operaciones</h1>`);
       printWindow.document.write(`<h3>Fecha: ${fechaNovedades}</h3>`);
       printWindow.document.write('<table><thead><tr><th>Hora</th><th>Guardia</th><th>Novedad / Reporte</th></tr></thead><tbody>');
-      
       listaNovedades.forEach(n => {
           printWindow.document.write(`<tr><td>${new Date(n.fecha).toLocaleTimeString()}</td><td>${n.guardia_nombre || 'N/A'}</td><td>${n.mensaje}</td></tr>`);
       });
-
       printWindow.document.write('</tbody></table>');
       printWindow.document.write('<div style="margin-top: 50px; text-align: center;"><p>__________________________</p><p>Firma Supervisión</p></div>');
       printWindow.document.write('</body></html>');
@@ -308,6 +307,26 @@ function AdminPanel() {
       } catch (error) { enqueueSnackbar("Error al enviar el correo", { variant: 'error' }); }
   };
 
+  // ✅ FUNCIÓN PARA ABRIR MODAL DE PASSWORD
+  const abrirModalPassword = (row) => {
+      setPasswordData({ id: row.id, username: row.username, newPassword: '' });
+      setOpenPassword(true);
+  };
+
+  // ✅ FUNCIÓN PARA GUARDAR NUEVA CONTRASEÑA
+  const handleGuardarPassword = async () => {
+      if(!passwordData.newPassword) return enqueueSnackbar("Escribe una contraseña", {variant:'warning'});
+      try {
+          await api.patch(`/api/usuarios/${passwordData.id}/`, { password: passwordData.newPassword }, { 
+              headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } 
+          });
+          enqueueSnackbar("Contraseña actualizada correctamente", {variant:'success'});
+          setOpenPassword(false);
+      } catch (e) {
+          enqueueSnackbar("Error al cambiar contraseña", {variant:'error'});
+      }
+  };
+
   const columnasCasas = [
     { field: 'calle_nombre', headerName: 'Calle', width: 150 },
     { field: 'numero_exterior', headerName: 'Número', width: 100 },
@@ -323,78 +342,95 @@ function AdminPanel() {
     { field: 'username', headerName: 'Usuario', width: 150 },
     { field: 'rol', headerName: 'Rol', width: 150 },
     { field: 'email', headerName: 'Email', width: 200 },
-    { field: 'acciones', headerName: 'Acciones', width: 150, renderCell: (params) => (<><IconButton size="small" color="primary" onClick={() => abrirModalUsuario(tabDirectorio === 0 ? 'residente' : 'guardia', params.row)}><EditIcon /></IconButton><IconButton size="small" color="error" onClick={() => handleBorrarUsuario(params.row.id)}><DeleteIcon /></IconButton></>) }
+    { field: 'acciones', headerName: 'Acciones', width: 180, renderCell: (params) => (
+        <>
+            <IconButton size="small" color="primary" onClick={() => abrirModalUsuario(tabDirectorio === 0 ? 'residente' : 'guardia', params.row)} title="Editar"><EditIcon /></IconButton>
+            <IconButton size="small" color="warning" onClick={() => abrirModalPassword(params.row)} title="Cambiar Contraseña"><KeyIcon /></IconButton>
+            <IconButton size="small" color="error" onClick={() => handleBorrarUsuario(params.row.id)} title="Borrar"><DeleteIcon /></IconButton>
+        </>
+    ) }
   ];
 
   const handleCrearFraccionamiento = async () => { if(!nombreNuevoFracc) return enqueueSnackbar("Escribe un nombre", {variant:'warning'}); try { await api.post('/api/fraccionamientos/', { nombre: nombreNuevoFracc }, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } }); enqueueSnackbar("Fraccionamiento creado", {variant:'success'}); setNombreNuevoFracc(''); setOpenFracc(false); cargarDatos(); } catch(e) { enqueueSnackbar("Error", {variant:'error'}); } };
-  const handleActualizarCuota = async () => { if (!fraccSeleccionado) return; try { await api.patch(`/api/fraccionamientos/${fraccSeleccionado}/`, { cuota_mensual: nuevaCuota }, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` }}); enqueueSnackbar("Cuota actualizada", { variant: 'success' }); setOpenCuota(false); cargarDatos(); } catch (error) { enqueueSnackbar("Error", { variant: 'error' }); } };
+  const handleActualizarCuota = async () => { if (!fraccSeleccionado || !nuevaCuota) return enqueueSnackbar("Ingresa un monto válido", {variant:'warning'}); try { await api.patch(`/api/fraccionamientos/${fraccSeleccionado}/`, { cuota_mensual: nuevaCuota }, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` }}); enqueueSnackbar("Cuota actualizada", { variant: 'success' }); setOpenCuota(false); cargarDatos(); } catch (error) { enqueueSnackbar("Error", { variant: 'error' }); } };
   const cargarPersonal = async () => { try { const res = await api.get('/api/trabajadores/', { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } }); setListaTrabajadores(res.data.results || res.data); } catch(e){} };
   const handleSubirCSV = async () => { if(!archivoCSV) return enqueueSnackbar("Selecciona archivo", {variant:'warning'}); const fd=new FormData(); fd.append('file',archivoCSV); setLoading(true); try{ const r=await api.post('/api/usuarios/importar_masivo/', fd, { headers:{'Authorization':`Token ${localStorage.getItem('token')}`,'Content-Type':'multipart/form-data'}}); setResultadoImportacion(r.data); cargarDatos(); setArchivoCSV(null); enqueueSnackbar("Proceso terminado", {variant:'info'}); }catch(e){ enqueueSnackbar("Error", {variant:'error'}); } setLoading(false); };
   
+  // ✅ FUNCIÓN CORREGIDA Y BLINDADA
   const handleGuardarUsuario = async () => { 
       const token = localStorage.getItem('token'); 
+      
+      // Limpieza de datos críticos para evitar Error 400
+      let casaLimpia = null;
+      // Solo enviamos casa_id si es residente Y si el valor no está vacío
+      if (tipoUsuario === 'residente' && formUser.casa_id) {
+          casaLimpia = formUser.casa_id;
+      }
+
       const payload = { 
           username: formUser.username, 
           email: formUser.email, 
           first_name: formUser.nombre, 
           last_name: formUser.apellido,
           telefono: formUser.telefono, 
-          rol: tipoUsuario==='guardia'?'Guardia de Seguridad':'Residente', 
-          casa_id: formUser.casa_id 
+          rol: tipoUsuario === 'guardia' ? 'Guardia de Seguridad' : 'Residente', 
+          casa_id: casaLimpia 
       }; 
-      if (formUser.password) payload.password = formUser.password; 
+
       try { 
-          if (isEditingUser) await api.patch(`/api/usuarios/${formUser.id}/`, payload, { headers: { 'Authorization': `Token ${token}` } }); 
-          else { if (!formUser.password) return enqueueSnackbar("Password obligatoria", {variant:'warning'}); await api.post('/api/usuarios/', payload, { headers: { 'Authorization': `Token ${token}` } }); } 
-          setOpenUsuario(false); cargarDatos(); enqueueSnackbar("Guardado", {variant:'success'}); 
-      } catch (error) { enqueueSnackbar("Error al guardar.", {variant:'error'}); } 
+          if (isEditingUser) {
+              // Al editar, NO enviamos password en este endpoint (se usa el botón de llave)
+              await api.patch(`/api/usuarios/${formUser.id}/`, payload, { headers: { 'Authorization': `Token ${token}` } }); 
+          } else { 
+              // Al crear nuevo, SÍ enviamos la password inicial
+              if (!newUserPassword) return enqueueSnackbar("Password obligatoria para nuevo usuario", {variant:'warning'}); 
+              payload.password = newUserPassword;
+              await api.post('/api/usuarios/', payload, { headers: { 'Authorization': `Token ${token}` } }); 
+          } 
+          
+          setOpenUsuario(false); 
+          cargarDatos(); 
+          enqueueSnackbar("Guardado correctamente", {variant:'success'}); 
+      } catch (error) { 
+          console.error(error); 
+          enqueueSnackbar("Error al guardar. Verifica que el usuario no exista ya.", {variant:'error'}); 
+      } 
   };
 
-  const handleBorrarUsuario = async (id) => { if(confirm("¿Eliminar?")) { await api.delete(`/api/usuarios/${id}/`, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } }); cargarDatos(); enqueueSnackbar("Eliminado", {variant:'success'}); }};
-  const handleBorrarPersonal = async (id) => { if(confirm("¿Baja?")) { await api.delete(`/api/trabajadores/${id}/`, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } }); cargarPersonal(); enqueueSnackbar("Baja procesada", {variant:'success'}); }};
+  async function handleBorrarUsuario(id) { if (confirm("¿Eliminar usuario?")) { await api.delete(`/api/usuarios/${id}/`, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } }); cargarDatos(); enqueueSnackbar("Eliminado", { variant: 'success' }); } }
+  const handleBorrarPersonal = async (id) => { if(confirm("¿Dar de baja?")) { await api.delete(`/api/trabajadores/${id}/`, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } }); cargarPersonal(); enqueueSnackbar("Baja procesada", {variant:'success'}); }};
   const handleCrearCalle = async () => { if(nombreCalle) { await api.post('/api/calles/', { nombre: nombreCalle }, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } }); enqueueSnackbar("Calle agregada", {variant:'success'}); setNombreCalle(''); setOpenCalle(false); cargarDatos(); }};
-  const handleCrearCasa = async () => { if(!formCasa.calle_id) return enqueueSnackbar("Falta calle", {variant:'warning'}); try { await api.post('/api/casas/', { calle: formCasa.calle_id, numero_exterior: formCasa.numero, saldo_pendiente: formCasa.saldo, fraccionamiento: fraccSeleccionado }, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` }}); enqueueSnackbar("Casa creada", {variant:'success'}); setOpenCasa(false); cargarDatos(); } catch(e) { enqueueSnackbar("Error", {variant:'error'}); } };
+  const handleCrearCasa = async () => { if(!formCasa.calle_id) return enqueueSnackbar("Falta calle", {variant:'warning'}); try { await api.post('/api/casas/', { calle: formCasa.calle_id, numero_exterior: formCasa.numero, saldo_pendiente: formCasa.saldo || 0, fraccionamiento: fraccSeleccionado }, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` }}); enqueueSnackbar("Casa creada", {variant:'success'}); setOpenCasa(false); cargarDatos(); } catch(e) { enqueueSnackbar("Error", {variant:'error'}); } };
   const handleValidarPago = async (id, accion) => { await api.post(`/api/pagos/${id}/${accion}/`, {}, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } }); enqueueSnackbar("Procesado", {variant:'success'}); cargarContabilidad(); cargarDatos(); };
-  const handleCargoMasivo = async () => { if(!confirm("¿Aplicar?")) return; await api.post('/api/pagos/cargo_masivo/', { monto: montoExtra, concepto: conceptoExtra }, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } }); enqueueSnackbar("Aplicado", {variant:'success'}); cargarDatos(); };
-  const handleRegistrarEgreso = async () => { await api.post('/api/egresos/', { tipo: formEgreso.tipo_id, monto: formEgreso.monto, descripcion: formEgreso.descripcion }, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } }); enqueueSnackbar("Registrado", {variant:'success'}); cargarContabilidad(); };
+  const handleCargoMasivo = async () => { if(!montoExtra) return enqueueSnackbar("Ingresa un monto", {variant:'warning'}); if(!confirm("¿Aplicar cargo masivo?")) return; await api.post('/api/pagos/cargo_masivo/', { monto: montoExtra, concepto: conceptoExtra }, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } }); enqueueSnackbar("Aplicado", {variant:'success'}); cargarDatos(); };
+  const handleRegistrarEgreso = async () => { if(!formEgreso.tipo_id || !formEgreso.monto) return enqueueSnackbar("Faltan datos", {variant:'warning'}); await api.post('/api/egresos/', { tipo: formEgreso.tipo_id, monto: formEgreso.monto, descripcion: formEgreso.descripcion }, { headers: { 'Authorization': `Token ${localStorage.getItem('token')}` } }); enqueueSnackbar("Registrado", {variant:'success'}); cargarContabilidad(); };
   const enviarWhatsApp = (tel, nom, sal) => { if(!tel) return enqueueSnackbar("Sin teléfono", {variant:'warning'}); let n=tel.replace(/\D/g,''); if(n.length===10) n='52'+n; let m=sal>0?`Hola ${nom}, saldo pendiente $${sal}`:`Hola ${nom}`; window.open(`https://wa.me/${n}?text=${encodeURIComponent(m)}`,'_blank'); };
   const cargarContabilidad = async () => { try { const [t,e,p] = await Promise.all([ api.get('/api/tipos-egresos/',{headers:{'Authorization':`Token ${localStorage.getItem('token')}`}}), api.get('/api/egresos/',{headers:{'Authorization':`Token ${localStorage.getItem('token')}`}}), api.get('/api/pagos/?estado=PENDIENTE',{headers:{'Authorization':`Token ${localStorage.getItem('token')}`}}) ]); setTiposEgresos(t.data.results || t.data); setListaEgresos(e.data.results || e.data); setPagosPendientes(p.data.results || p.data); } catch(x){} };
   const cargarHistorial = async () => { if(!fechaInicio || !fechaFin) return enqueueSnackbar("Fechas requeridas", {variant:'warning'}); try { const [resTrab, resProv] = await Promise.all([ api.get(`/api/accesos-trabajadores/?inicio=${fechaInicio}&fin=${fechaFin}`, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }), api.get(`/api/visitas/?inicio=${fechaInicio}&fin=${fechaFin}&tipo=PROVEEDOR`, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }) ]); const datosTrab = resTrab.data.results || resTrab.data; const datosProv = resProv.data.results || resProv.data; const eventosTrab = datosTrab.map(t => ({ id: `t-${t.id}`, fecha: t.fecha_entrada, tipo: 'TRABAJADOR', nombre: t.nombre, detalle: `Casa ${t.casa}`, salida: t.fecha_salida })); const eventosProv = datosProv.map(p => ({ id: `p-${p.id}`, fecha: p.fecha_llegada, tipo: 'PROVEEDOR', nombre: p.nombre_visitante, detalle: p.empresa, salida: p.fecha_salida_real })); setHistorialAccesos([...eventosTrab, ...eventosProv].sort((a,b) => new Date(b.fecha) - new Date(a.fecha))); } catch(e) { enqueueSnackbar("Error historial", {variant:'error'}); } };
   const descargarReporteAccesos = async () => { const token = localStorage.getItem('token'); const r = await api.get(`/api/reporte-accesos/?inicio=${fechaInicio}&fin=${fechaFin}`, { headers: { 'Authorization': `Token ${token}` }, responseType: 'blob' }); const url = window.URL.createObjectURL(new Blob([r.data])); const l = document.createElement('a'); l.href = url; l.download = `Accesos.pdf`; l.click(); };
   const descargarPlantilla = () => { const h="username,password,email,nombre,apellido,telefono,rol,calle,numero_casa"; const e="juan,123,mail@x.com,Juan,Perez,6181234,Residente,Calle 1,10"; const u=encodeURI("data:text/csv;charset=utf-8,"+h+"\n"+e); const l=document.createElement("a"); l.href=u; l.download="plantilla.csv"; document.body.appendChild(l); l.click(); };
+  
   const abrirModalUsuario = (tipo, u = null) => { 
-   setTipoUsuario(tipo); 
-      if (u) { 
-          setIsEditingUser(true); 
-          setFormUser({ 
-              id: u.id, 
-              username: u.username, 
-              password: '', 
-              email: u.email, 
-              nombre: u.first_name || '', 
-              apellido: u.last_name || '', 
-              telefono: u.telefono || '', 
-              // 👇 AQUÍ ESTÁ EL CAMBIO:
-              // Le decimos: "Usa el ID exacto que mandó el backend. Si no está, intenta con el viejo. Si no, déjalo vacío".
-              casa_id: u.casa_id || u.casa || '' 
-          }); 
-      } else { 
-          setIsEditingUser(false); 
-          setFormUser({ id: null, username: '', password: '', email: '', nombre: '', apellido: '', telefono: '', casa_id: '' }); 
-      } 
-      setOpenUsuario(true); 
-    };
-//   const abrirModalUsuario = (tipo, u = null) => { 
-//       setTipoUsuario(tipo); 
-//       if (u) { 
-//           setIsEditingUser(true); 
-//           setFormUser({ id: u.id, username: u.username, password: '', email: u.email, nombre: u.first_name || '', apellido: u.last_name || '', telefono: u.telefono || '', casa_id: u.casa || '' }); 
-//       } else { 
-//           setIsEditingUser(false); 
-//           setFormUser({ id: null, username: '', password: '', email: '', nombre: '', apellido: '', telefono: '', casa_id: '' }); 
-//       } 
-//       setOpenUsuario(true); 
-//   };
+    setTipoUsuario(tipo); 
+    if (u) { 
+        setIsEditingUser(true); 
+        setFormUser({ 
+            id: u.id, 
+            username: u.username, 
+            email: u.email, 
+            nombre: u.first_name || '', 
+            apellido: u.last_name || '', 
+            telefono: u.telefono || '', 
+            casa_id: u.casa_id || u.casa || '' 
+        }); 
+        setNewUserPassword(''); // No se usa password al editar aqui
+    } else { 
+        setIsEditingUser(false); 
+        setFormUser({ id: null, username: '', email: '', nombre: '', apellido: '', telefono: '', casa_id: '' }); 
+        setNewUserPassword(''); // Limpio para nuevo
+    } 
+    setOpenUsuario(true); 
+  };
 
   const KpiCard = ({ title, value, subtitle, icon, color }) => (
     <Card elevation={4} sx={{ height: '100%', borderRadius: 3 }}>
@@ -443,7 +479,6 @@ function AdminPanel() {
                 <Grid size="auto"><Button variant="contained" sx={{ bgcolor: '#00695c' }} startIcon={<StorefrontIcon />} onClick={() => {setOpenServicios(true); cargarServicios();}}>Directorio</Button></Grid>
                 <Grid size="auto"><Button variant="contained" sx={{ bgcolor: '#0277bd' }} startIcon={<TrendingUpIcon />} onClick={() => navigate('/reportes')}>Reportes</Button></Grid>
                 
-                {/* ✅ BOTÓN NUEVO: BITÁCORA */}
                 <Grid size="auto">
                     <Button 
                         variant="contained" 
@@ -501,7 +536,6 @@ function AdminPanel() {
           <DialogActions><Button onClick={() => setOpenServicios(false)}>Cerrar</Button></DialogActions>
       </Dialog>
 
-      {/* ✅ MODAL BITÁCORA DE NOVEDADES (ADMIN) */}
       <Dialog open={openNovedades} onClose={() => setOpenNovedades(false)} fullWidth maxWidth="md">
           <DialogTitle sx={{ bgcolor: '#f57c00', color: 'white', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
               <Box display="flex" alignItems="center" gap={1}><AssignmentIcon/> Bitácora de Operaciones</Box>
@@ -545,26 +579,32 @@ function AdminPanel() {
           </DialogContent>
           <DialogActions>
               <Button onClick={() => setOpenNovedades(false)}>Cerrar</Button>
-              {/* ✅ BOTÓN IMPRIMIR / PDF */}
               <Button onClick={handleImprimirNovedades} startIcon={<PrintIcon/>} color="secondary">Imprimir / PDF</Button>
               <Button onClick={cargarNovedadesDia} variant="contained">Actualizar</Button>
           </DialogActions>
       </Dialog>
 
-      {/* ... Resto de Modales (Importar, Cuota, etc.) sin cambios ... */}
       <Dialog open={openFracc} onClose={()=>setOpenFracc(false)}><DialogTitle>Nuevo Fraccionamiento</DialogTitle><DialogContent><TextField autoFocus margin="dense" label="Nombre" fullWidth value={nombreNuevoFracc} onChange={(e)=>setNombreNuevoFracc(e.target.value)} /></DialogContent><DialogActions><Button onClick={()=>setOpenFracc(false)}>Cancelar</Button><Button onClick={handleCrearFraccionamiento} variant="contained">Crear</Button></DialogActions></Dialog>
       <Dialog open={openImportar} onClose={()=>setOpenImportar(false)} fullWidth maxWidth="sm"><DialogTitle sx={{bgcolor:'#4caf50', color:'white'}}>Importar</DialogTitle><DialogContent sx={{mt:2}}><Button startIcon={<DownloadIcon/>} onClick={descargarPlantilla}>Descargar Plantilla</Button><Button component="label" variant="contained" fullWidth startIcon={<UploadFileIcon/>} sx={{mt:2}}>{archivoCSV ? archivoCSV.name : "Subir CSV"}<input type="file" hidden accept=".csv" onChange={(e)=>setArchivoCSV(e.target.files[0])} /></Button>{resultadoImportacion && <Box sx={{mt:2, p:2, bgcolor:'#e8f5e9'}}>{resultadoImportacion.mensaje}</Box>}</DialogContent><DialogActions><Button onClick={()=>setOpenImportar(false)}>Cerrar</Button><Button onClick={handleSubirCSV} variant="contained" color="success" disabled={!archivoCSV}>Procesar</Button></DialogActions></Dialog>
       <Dialog open={openCuota} onClose={() => setOpenCuota(false)}><DialogTitle>💲 Cuota de Mantenimiento</DialogTitle><DialogContent><Typography variant="body2" sx={{ mb: 2, mt: 1 }}>Define el monto mensual oficial.</Typography><TextField autoFocus margin="dense" label="Monto Mensual ($)" type="number" fullWidth value={nuevaCuota} onChange={(e) => setNuevaCuota(e.target.value)} /></DialogContent><DialogActions><Button onClick={() => setOpenCuota(false)}>Cancelar</Button><Button onClick={handleActualizarCuota} variant="contained" color="success">Actualizar Tarifa</Button></DialogActions></Dialog>
       <Dialog open={openEmail} onClose={() => setOpenEmail(false)} fullWidth maxWidth="sm"><DialogTitle>✉️ Enviar Correo a {emailData.nombre}</DialogTitle><DialogContent><TextField label="Para" fullWidth margin="dense" value={emailData.para} disabled /><TextField label="Asunto" fullWidth margin="dense" value={emailData.asunto} onChange={(e) => setEmailData({...emailData, asunto: e.target.value})} /><TextField label="Mensaje" fullWidth multiline rows={6} margin="dense" value={emailData.mensaje} onChange={(e) => setEmailData({...emailData, mensaje: e.target.value})} /></DialogContent><DialogActions><Button onClick={() => setOpenEmail(false)}>Cancelar</Button><Button onClick={handleEnviarEmailReal} variant="contained" color="primary" startIcon={<EmailIcon/>}>Enviar</Button></DialogActions></Dialog>
+      
+      {/* ✅ MODAL DE DIRECTORIO DE USUARIOS */}
       <Dialog open={openDirectorio} onClose={() => setOpenDirectorio(false)} fullWidth maxWidth="lg"><DialogTitle sx={{bgcolor: '#2e7d32', color: 'white'}}>Directorio de Usuarios</DialogTitle><DialogContent><Tabs value={tabDirectorio} onChange={(e,v)=>setTabDirectorio(v)} centered sx={{mb:2}}><Tab label="Residentes" /><Tab label="Guardias / Staff" /></Tabs><Box sx={{ height: 400, width: '100%' }}><DataGrid rows={usuarios.filter(u => tabDirectorio === 0 ? (!u.rol || u.rol.toLowerCase().includes('residente')) : (u.rol && u.rol.toLowerCase().includes('guardia')))} columns={columnasUsuarios} pageSize={5} /></Box></DialogContent><DialogActions><Button onClick={() => setOpenDirectorio(false)}>Cerrar</Button></DialogActions></Dialog>
       
+      {/* ✅ MODAL EDITAR / CREAR USUARIO (SIN CAMPO PASSWORD) */}
       <Dialog open={openUsuario} onClose={()=>setOpenUsuario(false)}>
           <DialogTitle>{isEditingUser ? 'Editar Usuario' : 'Nuevo Usuario'}</DialogTitle>
           <DialogContent>
               <TextField margin="dense" label="Nombre(s)" fullWidth value={formUser.nombre} onChange={(e)=>setFormUser({...formUser, nombre:e.target.value})}/>
               <TextField margin="dense" label="Apellidos" fullWidth value={formUser.apellido} onChange={(e)=>setFormUser({...formUser, apellido:e.target.value})}/>
               <TextField margin="dense" label="Usuario" fullWidth value={formUser.username} onChange={(e)=>setFormUser({...formUser, username:e.target.value})} autoComplete="off" />
-              <TextField margin="dense" label={isEditingUser ? "Cambiar Password (Opcional)" : "Password"} type="password" fullWidth value={formUser.password} onChange={(e)=>setFormUser({...formUser, password:e.target.value})} autoComplete="new-password" />
+              
+              {/* SOLO MOSTRAMOS CAMPO PASSWORD SI ES NUEVO USUARIO */}
+              {!isEditingUser && (
+                  <TextField margin="dense" label="Contraseña Inicial" type="password" fullWidth value={newUserPassword} onChange={(e)=>setNewUserPassword(e.target.value)} autoComplete="new-password" />
+              )}
+
               <TextField margin="dense" label="Email" fullWidth value={formUser.email} onChange={(e)=>setFormUser({...formUser, email:e.target.value})}/>
               <TextField margin="dense" label="Teléfono / WhatsApp" fullWidth value={formUser.telefono} onChange={(e)=>setFormUser({...formUser, telefono:e.target.value})}/>
               {tipoUsuario==='residente' && (<FormControl fullWidth margin="dense"><InputLabel>Casa</InputLabel><Select value={formUser.casa_id} onChange={(e)=>setFormUser({...formUser, casa_id:e.target.value})}><MenuItem value=""><em>Ninguna</em></MenuItem>{casasFiltradas.map(c=><MenuItem key={c.id} value={c.id}>{c.calle_nombre} #{c.numero_exterior}</MenuItem>)}</Select></FormControl>)}
@@ -572,6 +612,26 @@ function AdminPanel() {
           <DialogActions><Button onClick={()=>setOpenUsuario(false)}>Cancelar</Button><Button onClick={handleGuardarUsuario} variant="contained">{isEditingUser ? 'Actualizar' : 'Guardar'}</Button></DialogActions>
       </Dialog>
       
+      {/* ✅ NUEVO MODAL PARA CAMBIAR PASSWORD ESPECÍFICO */}
+      <Dialog open={openPassword} onClose={()=>setOpenPassword(false)}>
+          <DialogTitle>Cambiar Contraseña: {passwordData.username}</DialogTitle>
+          <DialogContent>
+              <TextField 
+                  autoFocus
+                  margin="dense" 
+                  label="Nueva Contraseña" 
+                  type="password" 
+                  fullWidth 
+                  value={passwordData.newPassword} 
+                  onChange={(e)=>setPasswordData({...passwordData, newPassword:e.target.value})} 
+              />
+          </DialogContent>
+          <DialogActions>
+              <Button onClick={()=>setOpenPassword(false)}>Cancelar</Button>
+              <Button onClick={handleGuardarPassword} variant="contained" color="warning">Cambiar</Button>
+          </DialogActions>
+      </Dialog>
+
       <Dialog open={openCasa} onClose={() => setOpenCasa(false)}><DialogTitle>Nueva Casa</DialogTitle><DialogContent><FormControl fullWidth margin="dense"><InputLabel>Calle</InputLabel><Select value={formCasa.calle_id} onChange={(e) => setFormCasa({...formCasa, calle_id: e.target.value})}>{calles.map(c => <MenuItem key={c.id} value={c.id}>{c.nombre}</MenuItem>)}</Select></FormControl><TextField margin="dense" label="Número" fullWidth onChange={(e) => setFormCasa({...formCasa, numero: e.target.value})} /></DialogContent><DialogActions><Button onClick={() => setOpenCasa(false)}>Cancelar</Button><Button onClick={handleCrearCasa}>Guardar</Button></DialogActions></Dialog>
       <Dialog open={openCalle} onClose={()=>setOpenCalle(false)}><DialogTitle>Nueva Calle</DialogTitle><DialogContent><TextField fullWidth label="Nombre" value={nombreCalle} onChange={(e)=>setNombreCalle(e.target.value)} /></DialogContent><DialogActions><Button onClick={()=>setOpenCalle(false)}>Cerrar</Button><Button onClick={handleCrearCalle}>Crear</Button></DialogActions></Dialog>
       <Dialog open={openContabilidad} onClose={() => setOpenContabilidad(false)} fullWidth maxWidth="lg"><DialogTitle sx={{bgcolor: '#ed6c02', color: 'white'}}>Centro Financiero</DialogTitle><DialogContent><Tabs value={tabContabilidad} onChange={(e,v)=>setTabContabilidad(v)} centered sx={{mb:2}}><Tab label="Validar Pagos" /><Tab label="Gastos" /><Tab label="Cobro Extra" /></Tabs>{tabContabilidad === 0 && (<Box>{pagosPendientes.length===0 ? <Alert severity="success">Todo al día</Alert> : (<Table size="small"><TableHead><TableRow><TableCell>Casa</TableCell><TableCell>Monto</TableCell><TableCell>Foto</TableCell><TableCell>Acción</TableCell></TableRow></TableHead><TableBody>{pagosPendientes.map(p=>(<TableRow key={p.id}><TableCell>Casa {p.casa}</TableCell><TableCell>${p.monto}</TableCell><TableCell>{p.comprobante ? <a href={p.comprobante} target="_blank">Ver</a> : '-'}</TableCell><TableCell><Button size="small" color="success" onClick={()=>handleValidarPago(p.id,'aprobar')}>OK</Button><Button size="small" color="error" onClick={()=>handleValidarPago(p.id,'rechazar')}>X</Button></TableCell></TableRow>))}</TableBody></Table>)}</Box>)}{tabContabilidad === 1 && (<Box><Box display="flex" gap={2} mb={2}><Select size="small" value={formEgreso.tipo_id} onChange={(e)=>setFormEgreso({...formEgreso, tipo_id:e.target.value})}>{tiposEgresos.map(t=><MenuItem key={t.id} value={t.id}>{t.nombre}</MenuItem>)}</Select><TextField size="small" label="Monto" type="number" onChange={(e)=>setFormEgreso({...formEgreso, monto:e.target.value})} /><Button variant="contained" onClick={handleRegistrarEgreso}>Registrar</Button></Box><Table size="small"><TableBody>{listaEgresos.map(e=><TableRow key={e.id}><TableCell>{e.fecha_pago}</TableCell><TableCell>{e.nombre_gasto}</TableCell><TableCell>-${e.monto}</TableCell></TableRow>)}</TableBody></Table></Box>)}{tabContabilidad === 2 && (<Box sx={{textAlign:'center', p:3}}><Typography color="error">Cobro Masivo</Typography><TextField label="Concepto" value={conceptoExtra} onChange={(e)=>setConceptoExtra(e.target.value)} sx={{m:1}}/><TextField label="Monto" type="number" value={montoExtra} onChange={(e)=>setMontoExtra(e.target.value)} sx={{m:1}}/><Button variant="contained" color="error" onClick={handleCargoMasivo}>Aplicar</Button></Box>)}</DialogContent><DialogActions><Button onClick={()=>setOpenContabilidad(false)}>Cerrar</Button></DialogActions></Dialog>

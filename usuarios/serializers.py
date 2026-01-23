@@ -4,7 +4,25 @@ from inmuebles.models import Casa
 
 class UsuarioSerializer(serializers.ModelSerializer):
     nombre_completo = serializers.SerializerMethodField()
-    
+   # 👇 AGREGA ESTO DENTRO DE LA CLASE UsuarioSerializer
+    def to_representation(self, instance):
+        """
+        Esto se ejecuta cuando enviamos los datos al Frontend.
+        Buscamos la casa del usuario y la agregamos al JSON.
+        """
+        ret = super().to_representation(instance)
+        
+        # Buscar la primera casa donde este usuario aparece como residente
+        # Asegúrate de tener importado el modelo Casa al inicio del archivo
+        casa = Casa.objects.filter(residentes=instance).first()
+        
+        if casa:
+            ret['casa_id'] = casa.id  # Enviamos el ID para que el Select lo reconozca
+            ret['casa_info'] = f"{casa.calle} #{casa.numero_exterior}" # Opcional: Para mostrar texto si quieres
+        else:
+            ret['casa_id'] = "" # Enviamos vacío si no tiene casa
+
+        return ret 
     # Campo especial solo para escritura (al crear/editar usuario)
     casa_id = serializers.IntegerField(write_only=True, required=False)
 

@@ -362,18 +362,39 @@ function AdminPanel() {
   const cargarHistorial = async () => { if(!fechaInicio || !fechaFin) return enqueueSnackbar("Fechas requeridas", {variant:'warning'}); try { const [resTrab, resProv] = await Promise.all([ api.get(`/api/accesos-trabajadores/?inicio=${fechaInicio}&fin=${fechaFin}`, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }), api.get(`/api/visitas/?inicio=${fechaInicio}&fin=${fechaFin}&tipo=PROVEEDOR`, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }) ]); const datosTrab = resTrab.data.results || resTrab.data; const datosProv = resProv.data.results || resProv.data; const eventosTrab = datosTrab.map(t => ({ id: `t-${t.id}`, fecha: t.fecha_entrada, tipo: 'TRABAJADOR', nombre: t.nombre, detalle: `Casa ${t.casa}`, salida: t.fecha_salida })); const eventosProv = datosProv.map(p => ({ id: `p-${p.id}`, fecha: p.fecha_llegada, tipo: 'PROVEEDOR', nombre: p.nombre_visitante, detalle: p.empresa, salida: p.fecha_salida_real })); setHistorialAccesos([...eventosTrab, ...eventosProv].sort((a,b) => new Date(b.fecha) - new Date(a.fecha))); } catch(e) { enqueueSnackbar("Error historial", {variant:'error'}); } };
   const descargarReporteAccesos = async () => { const token = localStorage.getItem('token'); const r = await api.get(`/api/reporte-accesos/?inicio=${fechaInicio}&fin=${fechaFin}`, { headers: { 'Authorization': `Token ${token}` }, responseType: 'blob' }); const url = window.URL.createObjectURL(new Blob([r.data])); const l = document.createElement('a'); l.href = url; l.download = `Accesos.pdf`; l.click(); };
   const descargarPlantilla = () => { const h="username,password,email,nombre,apellido,telefono,rol,calle,numero_casa"; const e="juan,123,mail@x.com,Juan,Perez,6181234,Residente,Calle 1,10"; const u=encodeURI("data:text/csv;charset=utf-8,"+h+"\n"+e); const l=document.createElement("a"); l.href=u; l.download="plantilla.csv"; document.body.appendChild(l); l.click(); };
-  
   const abrirModalUsuario = (tipo, u = null) => { 
-      setTipoUsuario(tipo); 
+   setTipoUsuario(tipo); 
       if (u) { 
           setIsEditingUser(true); 
-          setFormUser({ id: u.id, username: u.username, password: '', email: u.email, nombre: u.first_name || '', apellido: u.last_name || '', telefono: u.telefono || '', casa_id: u.casa || '' }); 
+          setFormUser({ 
+              id: u.id, 
+              username: u.username, 
+              password: '', 
+              email: u.email, 
+              nombre: u.first_name || '', 
+              apellido: u.last_name || '', 
+              telefono: u.telefono || '', 
+              // 👇 AQUÍ ESTÁ EL CAMBIO:
+              // Le decimos: "Usa el ID exacto que mandó el backend. Si no está, intenta con el viejo. Si no, déjalo vacío".
+              casa_id: u.casa_id || u.casa || '' 
+          }); 
       } else { 
           setIsEditingUser(false); 
           setFormUser({ id: null, username: '', password: '', email: '', nombre: '', apellido: '', telefono: '', casa_id: '' }); 
       } 
       setOpenUsuario(true); 
-  };
+    };
+//   const abrirModalUsuario = (tipo, u = null) => { 
+//       setTipoUsuario(tipo); 
+//       if (u) { 
+//           setIsEditingUser(true); 
+//           setFormUser({ id: u.id, username: u.username, password: '', email: u.email, nombre: u.first_name || '', apellido: u.last_name || '', telefono: u.telefono || '', casa_id: u.casa || '' }); 
+//       } else { 
+//           setIsEditingUser(false); 
+//           setFormUser({ id: null, username: '', password: '', email: '', nombre: '', apellido: '', telefono: '', casa_id: '' }); 
+//       } 
+//       setOpenUsuario(true); 
+//   };
 
   const KpiCard = ({ title, value, subtitle, icon, color }) => (
     <Card elevation={4} sx={{ height: '100%', borderRadius: 3 }}>

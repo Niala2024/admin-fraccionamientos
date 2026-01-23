@@ -44,27 +44,32 @@ class UsuarioSerializer(serializers.ModelSerializer):
         return user
     
     def update(self, instance, validated_data):
-        # Lógica para actualizar (por si editas el usuario desde el Admin)
+        password = validated_data.pop('password', None)
         casa_id = validated_data.pop('casa_id', None)
         
-        if 'password' in validated_data:
-            instance.set_password(validated_data.pop('password'))
-            
-        # Actualizar resto de campos
+        # Actualizar campos normales
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+        
+        if password:
+            instance.set_password(password)
+        
         instance.save()
 
-        # Actualizar casa si se seleccionó una nueva
+        # --- AQUÍ ESTABA EL ERROR, ESTA ES LA CORRECCIÓN ---
         if casa_id is not None:
-            # Primero liberamos la casa anterior si tenía una
-            Casa.objects.filter(propietario=instance).update(propietario=None)
-            # Asignamos la nueva
-            try:
-                nueva_casa = Casa.objects.get(id=casa_id)
-                nueva_casa.propietario = instance
-                nueva_casa.save()
-            except Casa.DoesNotExist:
-                pass
-                
+            # 1. Quitar al usuario de casas anteriores (usando 'residentes', NO 'propietario')
+            casas_anteriores = Casa.objects.filter(residentes=instance)
+            for casa_ant in casas_anteriores:
+                casa_ant.residentes.remove(instance)
+            
+            # 2. Asignar a la nueva casa (si se eligió una)
+            if casa_id:  # Si casa_id no está vacío
+                try:
+                    nueva_casa = Casa.objects.get(id=casa_id)
+                    nueva_casa.residentes.add(instance)
+                except Casa.DoesNotExist:
+                    pass # O manejar el error si prefieres
+        # ---------------------------------------------------
+
         return instance

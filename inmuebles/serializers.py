@@ -2,7 +2,6 @@ from rest_framework import serializers
 from .models import Casa, Fraccionamiento, Calle
 from django.contrib.auth import get_user_model
 
-# Obtenemos el modelo de Usuario real
 User = get_user_model()
 
 class FraccionamientoSerializer(serializers.ModelSerializer):
@@ -16,26 +15,33 @@ class CalleSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class CasaSerializer(serializers.ModelSerializer):
-    # 👇 ESTOS SON LOS CAMPOS MÁGICOS QUE FALTABAN
     calle_nombre = serializers.ReadOnlyField(source='calle.nombre')
     
-    # Campos personalizados para traer datos del dueño
     propietario_nombre = serializers.SerializerMethodField()
     telefono_propietario = serializers.SerializerMethodField()
     email_propietario = serializers.SerializerMethodField()
-    propietario = serializers.SerializerMethodField() # Para saber si existe (true/false)
+    propietario = serializers.SerializerMethodField()
 
     class Meta:
         model = Casa
         fields = '__all__'
-        # Hacemos que el fraccionamiento no sea exigente al crear
         extra_kwargs = {'fraccionamiento': {'required': False}}
 
-    # 👇 FUNCIONES QUE BUSCAN LA INFORMACIÓN
+    # 👇 ESTA ES LA FUNCIÓN CORREGIDA Y BLINDADA
     def get_propietario_obj(self, obj):
-        # Busca el primer usuario que tenga esta casa asignada y sea Residente
-        # Nota: 'usuario_set' es el nombre por defecto de la relación inversa en Django
-        return obj.usuario_set.filter(rol__icontains='Residente').first()
+        # Intento 1: Nombre común personalizado "residentes"
+        if hasattr(obj, 'residentes'):
+            return obj.residentes.filter(rol__icontains='Residente').first()
+        
+        # Intento 2: Nombre personalizado "usuarios"
+        elif hasattr(obj, 'usuarios'):
+            return obj.usuarios.filter(rol__icontains='Residente').first()
+            
+        # Intento 3: Nombre por defecto "usuario_set" (aunque ya falló, lo dejamos por seguridad)
+        elif hasattr(obj, 'usuario_set'):
+            return obj.usuario_set.filter(rol__icontains='Residente').first()
+            
+        return None
 
     def get_propietario_nombre(self, obj):
         p = self.get_propietario_obj(obj)

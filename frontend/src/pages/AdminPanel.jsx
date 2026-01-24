@@ -640,7 +640,7 @@ function AdminPanel() {
 
       {/* ✅ DIÁLOGO DE CASA ACTUALIZADO CON SALDO INICIAL */}
       <Dialog open={openCasa} onClose={() => setOpenCasa(false)}>
-          <DialogTitle>Nueva Casa</DialogTitle>
+          <DialogTitle>!!! NUEVA CASA TEST !!!</DialogTitle>
           <DialogContent>
               <FormControl fullWidth margin="dense">
                   <InputLabel>Calle</InputLabel>

@@ -122,11 +122,17 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760
 
 # --- EMAIL ---
+# --- EMAIL ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
+
+# 👇 CORRECCIÓN PARA RAILWAY: Usar puerto seguro SSL (465) en vez de TLS (587)
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True   # Obligatorio para el puerto 465
+EMAIL_USE_TLS = False  # Apagamos TLS para evitar el conflicto
+
 EMAIL_HOST_USER = 'mision.country.dgo@gmail.com'
+# Tu contraseña se mantiene intacta:
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'bnkmjgctfxxwvbhw') 
 DEFAULT_FROM_EMAIL = 'Administración Fraccionamiento <mision.country.dgo@gmail.com>'
 

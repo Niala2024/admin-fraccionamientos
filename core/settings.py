@@ -20,12 +20,12 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default-para-local')
 DEBUG = True 
 ALLOWED_HOSTS = ["*"]
 
-# --- 3. APPLICACIONES INSTALADAS (LISTA ÚNICA Y COMPLETA) ---
+# --- 3. APPLICACIONES INSTALADAS (LISTA ÚNICA) ---
 INSTALLED_APPS = [
     # APPS BASE DE DJANGO (¡NO BORRAR!)
     'django.contrib.admin',
     'django.contrib.auth',
-    'django.contrib.contenttypes', # Esta faltaba y causaba el error
+    'django.contrib.contenttypes', # ✅ Indispensable para arreglar tu error 500
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
@@ -34,7 +34,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders', 
-    'anymail',  # ✅ Librería para correo por API (Brevo)
+    'anymail',  # ✅ Librería para enviar correos por API
 
     # TUS APPS
     'usuarios.apps.UsuariosConfig',
@@ -114,7 +114,6 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760
 
 # --- 7. CONFIGURACIÓN DE CORREO (API ANYMAIL / BREVO) ---
-# Usamos el backend de Anymail para conectar por API (HTTPS) y evitar bloqueos de puerto.
 EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
 
 ANYMAIL = {

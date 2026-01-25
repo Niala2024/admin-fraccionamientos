@@ -1,42 +1,40 @@
 """
 Django settings for core project.
-Configuración HÍBRIDA: Funciona en Local (SQLite) y Railway (PostgreSQL) automáticamente.
+Configuración HÍBRIDA: Funciona en Local (SQLite) y Railway (PostgreSQL).
 """
 from pathlib import Path
 import os
 import dj_database_url
 from dotenv import load_dotenv
 
-# Cargar variables de entorno desde .env (Solo para local)
+# Cargar variables de entorno
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# --- 1. DETECCIÓN DE ENTORNO ---
+# --- 1. SEGURIDAD Y ENTORNO ---
 EN_PRODUCCION = 'RAILWAY_ENVIRONMENT' in os.environ
-
-# --- 2. SEGURIDAD ---
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default-para-local')
-DEBUG = True 
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default')
+DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
-# --- 3. APPLICACIONES INSTALADAS (LISTA ÚNICA) ---
+# --- 2. APLICACIONES INSTALADAS (LISTA ÚNICA CORREGIDA) ---
 INSTALLED_APPS = [
-    # APPS BASE DE DJANGO (¡NO BORRAR!)
+    # Apps de Django (¡NO BORRAR!)
     'django.contrib.admin',
     'django.contrib.auth',
-    'django.contrib.contenttypes', # ✅ Indispensable para arreglar tu error 500
+    'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
-    # APPS DE TERCEROS
+
+    # Apps de Terceros
     'rest_framework',
     'rest_framework.authtoken',
-    'corsheaders', 
-    'anymail',  # ✅ Librería para enviar correos por API
+    'corsheaders',
+    'anymail',  # ✅ Librería de correo (Brevo API)
 
-    # TUS APPS
+    # Tus Apps
     'usuarios.apps.UsuariosConfig',
     'inmuebles',
     'seguridad',
@@ -44,8 +42,6 @@ INSTALLED_APPS = [
     'comunidad',
     'servicios',
 ]
-
-AUTH_USER_MODEL = 'usuarios.Usuario'
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -78,13 +74,16 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# --- 4. BASE DE DATOS ---
+# --- 3. BASE DE DATOS ---
 DATABASES = {
     'default': dj_database_url.config(
         default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
         conn_max_age=600
     )
 }
+
+# --- 4. USUARIO Y AUTH ---
+AUTH_USER_MODEL = 'usuarios.Usuario'
 
 AUTH_PASSWORD_VALIDATORS = [
     { 'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator', },
@@ -93,45 +92,33 @@ AUTH_PASSWORD_VALIDATORS = [
     { 'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator', },
 ]
 
+# --- 5. IDIOMA Y ZONA HORARIA ---
 LANGUAGE_CODE = 'es-mx'
 TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_TZ = True
 
-# --- 5. ARCHIVOS ESTÁTICOS ---
+# --- 6. ARCHIVOS ESTÁTICOS ---
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = ['/app/frontend/dist']
 
-STATICFILES_DIRS = [
-    '/app/frontend/dist', 
-]
-
-# --- 6. ARCHIVOS MEDIA ---
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760 
-FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760
-
 # --- 7. CONFIGURACIÓN DE CORREO (API ANYMAIL / BREVO) ---
+# Usamos el backend de Anymail para conectar por API (HTTPS)
 EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
 
 ANYMAIL = {
     "SENDINBLUE_API_KEY": os.getenv('BREVO_API_KEY'),
 }
-
 DEFAULT_FROM_EMAIL = "Administración <mision.country.dgo@gmail.com>"
 
-# --- 8. CORS Y CSRF ---
-CORS_ALLOW_ALL_ORIGINS = True 
+# --- 8. CORS Y DRF ---
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
-
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",          
-    "http://127.0.0.1:8000",          
-    "https://*.railway.app",          
-    "https://*.up.railway.app",       
-]
+CSRF_TRUSTED_ORIGINS = ["https://*.railway.app", "https://*.up.railway.app", "http://localhost:5173"]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

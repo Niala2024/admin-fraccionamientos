@@ -106,14 +106,20 @@ STATICFILES_DIRS = ['/app/frontend/dist']
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# --- 7. CONFIGURACIÓN DE CORREO (API ANYMAIL / BREVO) ---
-# Usamos el backend de Anymail para conectar por API (HTTPS)
-EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
+# settings.py
 
-ANYMAIL = {
-    "SENDINBLUE_API_KEY": os.getenv('BREVO_API_KEY'),
-}
-DEFAULT_FROM_EMAIL = "Administración <mision.country.dgo@gmail.com>"
+# --- EMAIL (Configuración OUTLOOK / HOTMAIL) ---
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp-mail.outlook.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_USE_SSL = False
+
+# Tu nuevo correo de Outlook y su contraseña normal
+EMAIL_HOST_USER = 'admicountry@hotmail.com'  # 👈 Pon aquí el que creaste
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD') # 👈 Guarda la clave en Railway
+
+DEFAULT_FROM_EMAIL = 'Administración <admicountry@hotmail.com>'
 
 # --- 8. CORS Y DRF ---
 CORS_ALLOW_ALL_ORIGINS = True

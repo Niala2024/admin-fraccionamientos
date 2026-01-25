@@ -18,9 +18,9 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default')
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
-# --- 2. APLICACIONES INSTALADAS (LISTA ÚNICA CORREGIDA) ---
+# --- 2. APLICACIONES INSTALADAS ---
 INSTALLED_APPS = [
-    # Apps de Django (¡NO BORRAR!)
+    # Apps de Django
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -32,7 +32,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
-    'anymail',  # ✅ Librería de correo (Brevo API)
+    'anymail',  # ✅ Librería de correo (Ahora con Resend)
 
     # Tus Apps
     'usuarios.apps.UsuariosConfig',
@@ -106,17 +106,17 @@ STATICFILES_DIRS = ['/app/frontend/dist']
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# settings.py
-
-# --- EMAIL (API Anymail - La única que funciona en Railway) ---
-EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
+# --- 7. CONFIGURACIÓN DE CORREO (RESEND API) ---
+# Usamos el backend de Resend (API HTTPS)
+EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
 
 ANYMAIL = {
-    "SENDINBLUE_API_KEY": os.getenv('BREVO_API_KEY'),
+    "RESEND_API_KEY": os.getenv('RESEND_API_KEY'),
 }
 
-# 👇 AQUÍ EL CAMBIO CLAVE: Usamos el Outlook que acabas de autorizar en Brevo
-DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
+# 👇 IMPORTANTE: Usamos el dominio de pruebas de Resend.
+# Esto garantiza que el correo SALGA sin bloqueos.
+DEFAULT_FROM_EMAIL = "Administración <onboarding@resend.dev>"
 
 # --- 8. CORS Y DRF ---
 CORS_ALLOW_ALL_ORIGINS = True

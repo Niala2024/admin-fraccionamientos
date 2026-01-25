@@ -122,20 +122,20 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760
 
 # --- EMAIL ---
-# --- EMAIL (Configuración Segura SSL) ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_HOST = 'smtp-relay.brevo.com'  # 👈 El servidor de Brevo
+EMAIL_PORT = 587                       # Brevo funciona mejor en el 587
+EMAIL_USE_TLS = True                   # Usamos TLS
+EMAIL_USE_SSL = False                  # SSL Apagado
 
-# 👇 CAMBIO CRÍTICO: Usamos puerto 465 con SSL
-EMAIL_PORT = 465
-EMAIL_USE_SSL = True   # ✅ Activamos SSL
-EMAIL_USE_TLS = False  # ❌ Desactivamos TLS (causante del bloqueo)
+# Tu correo con el que te registraste en Brevo
+EMAIL_HOST_USER = 'mision.country.dgo@gmail.com' 
 
-EMAIL_HOST_USER = 'mision.country.dgo@gmail.com'
-# Tu contraseña de aplicación (NO la cambies si ya funciona)
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'bnkmjgctfxxwvbhw') 
-DEFAULT_FROM_EMAIL = 'Administración Fraccionamiento <mision.country.dgo@gmail.com>'
+# 👇 Aquí pegas la CLAVE LARGA que te dio Brevo (NO tu contraseña de Gmail)
+# Lo ideal es usar os.getenv, pero para probar pégala aquí:
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD') 
 
+DEFAULT_FROM_EMAIL = 'Administración <mision.country.dgo@gmail.com>'
 # --- 5. CORS Y CSRF ---
 CORS_ALLOW_ALL_ORIGINS = True 
 CORS_ALLOW_CREDENTIALS = True

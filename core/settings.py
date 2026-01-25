@@ -121,21 +121,27 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760
 
-# --- EMAIL ---
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp-relay.brevo.com'  # 👈 El servidor de Brevo
-EMAIL_PORT = 587                       # Brevo funciona mejor en el 587
-EMAIL_USE_TLS = True                   # Usamos TLS
-EMAIL_USE_SSL = False                  # SSL Apagado
+# settings.py
 
-# Tu correo con el que te registraste en Brevo
-EMAIL_HOST_USER = 'mision.country.dgo@gmail.com' 
+# 1. Agrega 'anymail' a tus apps instaladas (¡IMPORTANTE!)
+INSTALLED_APPS = [
+    # ... tus otras apps ...
+    'rest_framework',
+    'corsheaders',
+    'anymail',  # 👈 AGREGA ESTO AQUÍ
+    # ...
+]
 
-# 👇 Aquí pegas la CLAVE LARGA que te dio Brevo (NO tu contraseña de Gmail)
-# Lo ideal es usar os.getenv, pero para probar pégala aquí:
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD') 
+# 2. Configuración de Correo por API (HTTPS - Nunca se bloquea)
+EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
 
-DEFAULT_FROM_EMAIL = 'Administración <mision.country.dgo@gmail.com>'
+# Django buscará la clave en las variables de Railway
+ANYMAIL = {
+    "SENDINBLUE_API_KEY": os.getenv('BREVO_API_KEY'),
+}
+
+DEFAULT_FROM_EMAIL = "Administración <mision.country.dgo@gmail.com>"
+# (Ya no necesitas EMAIL_HOST, PORT, USE_TLS, ni PASSWORD aquí)
 # --- 5. CORS Y CSRF ---
 CORS_ALLOW_ALL_ORIGINS = True 
 CORS_ALLOW_CREDENTIALS = True

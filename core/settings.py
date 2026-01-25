@@ -108,18 +108,15 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # settings.py
 
-# --- EMAIL (Configuración OUTLOOK / HOTMAIL) ---
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp-mail.outlook.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_USE_SSL = False
+# --- EMAIL (API Anymail - La única que funciona en Railway) ---
+EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
 
-# Tu nuevo correo de Outlook y su contraseña normal
-EMAIL_HOST_USER = 'admicountry@hotmail.com'  # 👈 Pon aquí el que creaste
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD') # 👈 Guarda la clave en Railway
+ANYMAIL = {
+    "SENDINBLUE_API_KEY": os.getenv('BREVO_API_KEY'),
+}
 
-DEFAULT_FROM_EMAIL = 'Administración <admicountry@hotmail.com>'
+# 👇 AQUÍ EL CAMBIO CLAVE: Usamos el Outlook que acabas de autorizar en Brevo
+DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
 
 # --- 8. CORS Y DRF ---
 CORS_ALLOW_ALL_ORIGINS = True

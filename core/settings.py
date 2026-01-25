@@ -27,18 +27,23 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
 
+# --- APPS INSTALADAS (LISTA ÚNICA Y CORREGIDA) ---
 INSTALLED_APPS = [
+    # --- APPS DE DJANGO (Base del sistema) ---
     'django.contrib.admin',
     'django.contrib.auth',
-    'django.contrib.contenttypes',
+    'django.contrib.contenttypes', # ✅ Indispensable para que no falle el error actual
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # APPS DE TERCEROS
+    
+    # --- APPS DE TERCEROS ---
     'rest_framework',
     'rest_framework.authtoken',
-    'corsheaders', # ✅ INDISPENSABLE
-    # TUS APPS
+    'corsheaders', 
+    'anymail',  # ✅ Aquí está el servicio de correo por API
+
+    # --- TUS APPS ---
     'usuarios.apps.UsuariosConfig',
     'inmuebles',
     'seguridad',
@@ -66,11 +71,9 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        # 👇 CAMBIO: Ponemos la ruta en texto plano (Hardcoded)
-        'DIRS': ['/app/frontend/dist'], 
+        'DIRS': ['/app/frontend/dist'], # Ruta para React compilado
         'APP_DIRS': True,
         'OPTIONS': {
-            # ... (deja el resto igual)
             'context_processors': [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
@@ -105,12 +108,9 @@ USE_TZ = True
 # --- 4. ARCHIVOS ESTÁTICOS ---
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-# Compresión y caché eficiente para producción
-#STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-# 👇 CAMBIO 2: Agregamos esto para que Django encuentre los JS y CSS de React
 STATICFILES_DIRS = [
-    '/app/frontend/dist',  # 👇 Ruta en texto plano
+    '/app/frontend/dist', 
 ]
 
 # --- ARCHIVOS MEDIA ---
@@ -121,27 +121,16 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760
 
-# settings.py
-
-# 1. Agrega 'anymail' a tus apps instaladas (¡IMPORTANTE!)
-INSTALLED_APPS = [
-    # ... tus otras apps ...
-    'rest_framework',
-    'corsheaders',
-    'anymail',  # 👈 AGREGA ESTO AQUÍ
-    # ...
-]
-
-# 2. Configuración de Correo por API (HTTPS - Nunca se bloquea)
+# --- EMAIL (Configuración API Brevo/Sendinblue) ---
+# Esto usa HTTPS (Puerto 443) y NUNCA se bloquea por firewalls
 EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
 
-# Django buscará la clave en las variables de Railway
 ANYMAIL = {
     "SENDINBLUE_API_KEY": os.getenv('BREVO_API_KEY'),
 }
 
 DEFAULT_FROM_EMAIL = "Administración <mision.country.dgo@gmail.com>"
-# (Ya no necesitas EMAIL_HOST, PORT, USE_TLS, ni PASSWORD aquí)
+
 # --- 5. CORS Y CSRF ---
 CORS_ALLOW_ALL_ORIGINS = True 
 CORS_ALLOW_CREDENTIALS = True
@@ -163,4 +152,3 @@ REST_FRAMEWORK = {
 }
 
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-# FORZANDO ACTUALIZACION DE CORREO - INTENTO FINAL

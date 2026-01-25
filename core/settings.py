@@ -13,37 +13,30 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- 1. DETECCIÓN DE ENTORNO ---
-# Si Railway pone esta variable, sabemos que estamos en la nube.
 EN_PRODUCCION = 'RAILWAY_ENVIRONMENT' in os.environ
 
 # --- 2. SEGURIDAD ---
-# En producción usamos la clave secreta real, en local una por defecto
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default-para-local')
-
-# DEBUG se apaga solo en producción (Por seguridad)
 DEBUG = True 
-
-# Permitir todos los hosts es necesario en Railway por sus IPs dinámicas
 ALLOWED_HOSTS = ["*"]
 
-
-# --- APPS INSTALADAS (LISTA ÚNICA Y CORREGIDA) ---
+# --- 3. APPLICACIONES INSTALADAS (LISTA ÚNICA Y COMPLETA) ---
 INSTALLED_APPS = [
-    # --- APPS DE DJANGO (Base del sistema) ---
+    # APPS BASE DE DJANGO (¡NO BORRAR!)
     'django.contrib.admin',
     'django.contrib.auth',
-    'django.contrib.contenttypes', # ✅ Indispensable para que no falle el error actual
+    'django.contrib.contenttypes', # Esta faltaba y causaba el error
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
     
-    # --- APPS DE TERCEROS ---
+    # APPS DE TERCEROS
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders', 
-    'anymail',  # ✅ Aquí está el servicio de correo por API
+    'anymail',  # ✅ Librería para correo por API (Brevo)
 
-    # --- TUS APPS ---
+    # TUS APPS
     'usuarios.apps.UsuariosConfig',
     'inmuebles',
     'seguridad',
@@ -55,9 +48,9 @@ INSTALLED_APPS = [
 AUTH_USER_MODEL = 'usuarios.Usuario'
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware', # ✅ EL PRIMERO
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', # ✅ Para archivos estáticos
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -71,7 +64,7 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': ['/app/frontend/dist'], # Ruta para React compilado
+        'DIRS': ['/app/frontend/dist'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -85,7 +78,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# --- 3. BASE DE DATOS HÍBRIDA ---
+# --- 4. BASE DE DATOS ---
 DATABASES = {
     'default': dj_database_url.config(
         default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
@@ -105,7 +98,7 @@ TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_TZ = True
 
-# --- 4. ARCHIVOS ESTÁTICOS ---
+# --- 5. ARCHIVOS ESTÁTICOS ---
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
@@ -113,16 +106,15 @@ STATICFILES_DIRS = [
     '/app/frontend/dist', 
 ]
 
-# --- ARCHIVOS MEDIA ---
+# --- 6. ARCHIVOS MEDIA ---
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Configuración de subida (10MB)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760 
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760
 
-# --- EMAIL (Configuración API Brevo/Sendinblue) ---
-# Esto usa HTTPS (Puerto 443) y NUNCA se bloquea por firewalls
+# --- 7. CONFIGURACIÓN DE CORREO (API ANYMAIL / BREVO) ---
+# Usamos el backend de Anymail para conectar por API (HTTPS) y evitar bloqueos de puerto.
 EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
 
 ANYMAIL = {
@@ -131,7 +123,7 @@ ANYMAIL = {
 
 DEFAULT_FROM_EMAIL = "Administración <mision.country.dgo@gmail.com>"
 
-# --- 5. CORS Y CSRF ---
+# --- 8. CORS Y CSRF ---
 CORS_ALLOW_ALL_ORIGINS = True 
 CORS_ALLOW_CREDENTIALS = True
 

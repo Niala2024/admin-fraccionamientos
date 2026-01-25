@@ -16,6 +16,9 @@ class UsuarioViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def enviar_correo_vecino(self, request):
+        print("--- DIAGNÓSTICO DE CORREO ---")
+        print(f"PUERTO ACTUAL: {settings.EMAIL_PORT}")
+        print(f"USA SSL: {settings.EMAIL_USE_SSL}")
         destinatario = request.data.get('destinatario')
         asunto = request.data.get('asunto')
         mensaje = request.data.get('mensaje')

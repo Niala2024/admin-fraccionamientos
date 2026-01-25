@@ -106,17 +106,20 @@ STATICFILES_DIRS = ['/app/frontend/dist']
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# --- 7. CONFIGURACIÓN DE CORREO (RESEND API) ---
-# Usamos el backend de Resend (API HTTPS)
-EMAIL_BACKEND = "anymail.backends.resend.EmailBackend"
+# --- EMAIL (Configuración INFINITUM MAIL - TELMEX) ---
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.infinitummail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_USE_SSL = False
 
-ANYMAIL = {
-    "RESEND_API_KEY": os.getenv('RESEND_API_KEY'),
-}
+# 👇 Pon aquí tu correo completo de Infinitum
+EMAIL_HOST_USER = 'adminfracc@infinitummail.com' 
 
-# 👇 IMPORTANTE: Usamos el dominio de pruebas de Resend.
-# Esto garantiza que el correo SALGA sin bloqueos.
-DEFAULT_FROM_EMAIL = "Administración <onboarding@resend.dev>"
+# La contraseña la leerá de las variables de Railway
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
+
+DEFAULT_FROM_EMAIL = 'Administración <adminfracc@infinitummail.com>'
 
 # --- 8. CORS Y DRF ---
 CORS_ALLOW_ALL_ORIGINS = True

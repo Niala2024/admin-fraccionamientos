@@ -1,118 +1,162 @@
-from django.db import models
-from django.contrib.auth import get_user_model
-from django.db.models import Avg # <--- IMPORTANTE: Agregado
+"""
+Django settings for core project.
+Versión DEFINITIVA: 
+- Correo: SMTP2GO (Puerto 443/SSL)
+- CORS: Estricto (Permite subir imágenes y bajar PDFs)
+"""
+from pathlib import Path
+import os
+import dj_database_url
+from dotenv import load_dotenv
+from corsheaders.defaults import default_headers # Importante para los headers
 
-User = get_user_model()
+# Cargar variables de entorno
+load_dotenv()
 
-# --- 1. MÓDULO DE ENCUESTAS ---
-class Encuesta(models.Model):
-    titulo = models.CharField(max_length=200)
-    descripcion = models.TextField(blank=True)
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
-    activa = models.BooleanField(default=True)
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-    def __str__(self):
-        return self.titulo
+# --- 1. SEGURIDAD Y ENTORNO ---
+EN_PRODUCCION = 'RAILWAY_ENVIRONMENT' in os.environ
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default')
+DEBUG = True
+ALLOWED_HOSTS = ["*"]
 
-class OpcionEncuesta(models.Model):
-    encuesta = models.ForeignKey(Encuesta, on_delete=models.CASCADE, related_name='opciones')
-    texto = models.CharField(max_length=100)
-    votos = models.IntegerField(default=0)
+# --- 2. APLICACIONES INSTALADAS ---
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
 
-    def __str__(self):
-        return f"{self.texto} ({self.votos})"
+    # Apps de Terceros
+    'rest_framework',
+    'rest_framework.authtoken',
+    'corsheaders',
 
-class VotoUsuario(models.Model):
-    usuario = models.ForeignKey(User, on_delete=models.CASCADE)
-    encuesta = models.ForeignKey(Encuesta, on_delete=models.CASCADE)
-    class Meta:
-        unique_together = ('usuario', 'encuesta') 
+    # Tus Apps
+    'usuarios.apps.UsuariosConfig',
+    'inmuebles',
+    'seguridad',
+    'finanzas',
+    'comunidad',
+    'servicios',
+]
 
-# --- 2. MÓDULO DE FORO (COMUNIDAD) ---
-class Publicacion(models.Model):
-    TIPOS = [
-        ('SOCIAL', 'Social / Aviso'),
-        ('VENTA', 'Venta de Garage / Artículo'),
-        ('SERVICIO', 'Ofrezco Servicio'),
-        ('ALERTA', 'Alerta Vecinal'),
-    ]
-    autor = models.ForeignKey(User, on_delete=models.CASCADE)
-    titulo = models.CharField(max_length=150)
-    contenido = models.TextField()
-    tipo = models.CharField(max_length=20, choices=TIPOS, default='SOCIAL')
-    
-    imagen = models.ImageField(upload_to='foro_img/', blank=True, null=True)
-    video = models.FileField(upload_to='foro_vid/', blank=True, null=True)
-    
-    fecha = models.DateTimeField(auto_now_add=True)
+MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',            # ✅ VITAL: Debe ir al inicio
+    'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
+    'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.common.CommonMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
+    'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
 
-class Comentario(models.Model):
-    publicacion = models.ForeignKey(Publicacion, related_name='comentarios', on_delete=models.CASCADE)
-    autor = models.ForeignKey(User, on_delete=models.CASCADE)
-    texto = models.TextField()
-    fecha = models.DateTimeField(auto_now_add=True)
+ROOT_URLCONF = 'core.urls'
 
-# --- 3. MÓDULO DE QUEJAS Y SUGERENCIAS ---
-class Queja(models.Model):
-    ESTADOS = [
-        ('PENDIENTE', 'Pendiente de Revisión'),
-        ('EN_PROCESO', 'En Proceso'),
-        ('RESUELTO', 'Resuelto'),
-    ]
-    autor = models.ForeignKey(User, on_delete=models.CASCADE)
-    asunto = models.CharField(max_length=150)
-    descripcion = models.TextField()
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='PENDIENTE')
-    respuesta_admin = models.TextField(blank=True, null=True)
-    
-    imagen = models.ImageField(upload_to='quejas_img/', blank=True, null=True)
-    video = models.FileField(upload_to='quejas_vid/', blank=True, null=True)
-    
-    fecha = models.DateTimeField(auto_now_add=True)
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': ['/app/frontend/dist'],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                'django.template.context_processors.request',
+                'django.contrib.auth.context_processors.auth',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
 
-class Aviso(models.Model):
-    titulo = models.CharField(max_length=200)
-    mensaje = models.TextField()
-    fecha_creacion = models.DateTimeField(auto_now_add=True)
-    activo = models.BooleanField(default=True)
+WSGI_APPLICATION = 'core.wsgi.application'
 
-    def __str__(self):
-        return self.titulo
+# --- 3. BASE DE DATOS ---
+DATABASES = {
+    'default': dj_database_url.config(
+        default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
+        conn_max_age=600
+    )
+}
 
-# --- 4. NUEVO MÓDULO: DIRECTORIO DE SERVICIOS ---
-class ServicioExterno(models.Model):
-    CATEGORIAS = [
-        ('PLOMERIA', 'Plomería'),
-        ('ELECTRICIDAD', 'Electricidad'),
-        ('JARDINERIA', 'Jardinería'),
-        ('ALBANIL', 'Albañilería'),
-        ('CERRAJERIA', 'Cerrajería'),
-        ('GAS', 'Gas Estacionario/Cilindro'),
-        ('AGUA', 'Pipas de Agua'),
-        ('INTERNET', 'Técnico Internet/Cable'),
-        ('LIMPIEZA', 'Limpieza / Doméstica'),
-        ('VETERINARIA', 'Veterinaria / Mascotas'),
-        ('OTRO', 'Otros Servicios'),
-    ]
+# --- 4. USUARIO Y AUTH ---
+AUTH_USER_MODEL = 'usuarios.Usuario'
 
-    nombre = models.CharField(max_length=150)
-    categoria = models.CharField(max_length=20, choices=CATEGORIAS)
-    telefono = models.CharField(max_length=20)
-    descripcion = models.TextField(blank=True, null=True)
-    creado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="servicios_sugeridos")
-    fecha_registro = models.DateTimeField(auto_now_add=True)
-    
-    foto = models.ImageField(upload_to='servicios/', blank=True, null=True)
+AUTH_PASSWORD_VALIDATORS = [
+    { 'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator', },
+    { 'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', },
+    { 'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator', },
+    { 'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator', },
+]
 
-    def __str__(self):
-        return f"{self.nombre} ({self.get_categoria_display()})"
+# --- 5. IDIOMA Y ZONA HORARIA ---
+LANGUAGE_CODE = 'es-mx'
+TIME_ZONE = 'America/Mexico_City'
+USE_I18N = True
+USE_TZ = True
 
-class CalificacionServicio(models.Model):
-    servicio = models.ForeignKey(ServicioExterno, on_delete=models.CASCADE, related_name='calificaciones')
-    usuario = models.ForeignKey(User, on_delete=models.CASCADE)
-    estrellas = models.IntegerField(default=5) # 1 a 5
-    comentario = models.TextField(blank=True, null=True)
-    fecha = models.DateTimeField(auto_now_add=True)
+# --- 6. ARCHIVOS ESTÁTICOS ---
+STATIC_URL = 'static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = ['/app/frontend/dist']
 
-    class Meta:
-        unique_together = ('servicio', 'usuario')
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# --- 7. CONFIGURACIÓN DE CORREO (SMTP2GO - FUNCIONANDO) ---
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'mail.smtp2go.com'
+EMAIL_PORT = 443              # Puerto seguro SSL (Anti-bloqueo Railway)
+EMAIL_USE_SSL = True          # ✅ SSL Activado
+EMAIL_USE_TLS = False         # ❌ TLS Desactivado
+EMAIL_HOST_USER = 'railwayapp'
+EMAIL_HOST_PASSWORD = os.getenv('SMTP2GO_PASSWORD')
+DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
+
+# --- 8. CORS Y DRF (CORREGIDO PARA IMÁGENES Y PDFS) ---
+
+# 1. ❌ IMPORTANTE: Apagamos "Permitir a todos" para evitar conflictos
+CORS_ALLOW_ALL_ORIGINS = False 
+
+# 2. ✅ Activamos credenciales para que pasen las cookies/tokens
+CORS_ALLOW_CREDENTIALS = True
+
+# 3. Lista Blanca EXACTA (Tus dominios reales)
+CORS_ALLOWED_ORIGINS = [
+    "https://admin-fraccionamientos-production.up.railway.app", # Tu Frontend
+    "https://web-production-619e0.up.railway.app",              # Tu Backend
+    "http://localhost:5173",                                      # Tu Localhost (pruebas)
+]
+
+# 4. Confianza CSRF (Igual que arriba + comodines de Railway)
+CSRF_TRUSTED_ORIGINS = [
+    "https://admin-fraccionamientos-production.up.railway.app",
+    "https://web-production-619e0.up.railway.app",
+    "https://*.railway.app",
+    "https://*.up.railway.app",
+]
+
+# 5. Headers permitidos (Incluye 'content-disposition' para descargar PDFs)
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "content-disposition",
+    "accept-encoding",
+    "content-type",
+    "accept",
+    "origin",
+    "authorization",
+]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 50
+}
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

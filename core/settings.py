@@ -1,6 +1,6 @@
 """
 Django settings for core project.
-Configuración: Brevo API (Puerto 443) + Hotmail Verificado.
+Configuración Final: SMTP2GO (Usuario 'railwayapp') + Puerto 443.
 """
 from pathlib import Path
 import os
@@ -26,12 +26,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Apps de Terceros
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
-    'anymail',  # ✅ Librería para conectar con Brevo API
+    # 'anymail' <-- Eliminado porque usaremos SMTP nativo
 
     # Tus Apps
     'usuarios.apps.UsuariosConfig',
@@ -105,23 +105,25 @@ STATICFILES_DIRS = ['/app/frontend/dist']
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# settings.py
-
-# --- CONFIGURACIÓN SMTP2GO ---
-# Usamos el backend estándar de Django (no anymail)
+# --- 7. CONFIGURACIÓN SMTP2GO (ESTRATEGIA PUERTO 443) ---
+# Usamos el backend estándar de Django
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'mail.smtp2go.com'
 
-# 👇 EL TRUCO: Usamos el puerto 2525 (a veces Railway deja pasar este)
-EMAIL_PORT = 2525 
-EMAIL_USE_TLS = True
+# 👇 EL SECRETO: Puerto 443 con SSL para saltar el bloqueo de Railway
+EMAIL_PORT = 443
+EMAIL_USE_SSL = True   # ✅ Activamos SSL
+EMAIL_USE_TLS = False  # ❌ Apagamos TLS
 
-# Tu usuario y contraseña de SMTP2GO
-EMAIL_HOST_USER = 'adminfracc@infinitummail.com' # (No es tu email, es el usuario que creaste en el panel)
+# 👇 CORRECCIÓN: Usamos el usuario que aparece en tu imagen
+EMAIL_HOST_USER = 'railwayapp'
+
+# La contraseña la tomará de tus Variables de Railway (Debe ser PwNstO8PAdkFsHes)
 EMAIL_HOST_PASSWORD = os.getenv('SMTP2GO_PASSWORD')
 
-# Remitente
-DEFAULT_FROM_EMAIL = "Administración <adminfracc@infinitummail.com>"
+# Tu remitente (Hotmail)
+DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
+
 # --- 8. CORS Y DRF ---
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True

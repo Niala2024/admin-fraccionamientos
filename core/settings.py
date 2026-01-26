@@ -119,28 +119,16 @@ EMAIL_HOST_USER = 'railwayapp'
 EMAIL_HOST_PASSWORD = os.getenv('SMTP2GO_PASSWORD')
 DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
 
-# --- 8. CORS Y DRF (CORREGIDO Y ACTUALIZADO) ---
-# Importamos los headers por defecto para agregar los de PDF
+# --- 8. CORS Y DRF (MODO PERMISIVO PARA TOKENS) ---
 from corsheaders.defaults import default_headers
 
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOW_CREDENTIALS = True
+# ✅ AL PERMITIR TODO, SE ACABAN LOS ERRORES DE BLOQUEO DE LISTAS
+CORS_ALLOW_ALL_ORIGINS = True  
 
-# Lista explícita de tus dominios (Frontend y Backend) para evitar bloqueos
-CORS_ALLOWED_ORIGINS = [
-    "https://admin-fraccionamientos-production.up.railway.app",
-    "https://web-production-619e0.up.railway.app",
-    "http://localhost:5173",
-]
+# ❌ APAGAMOS ESTO PORQUE USAS TOKENS, NO COOKIES
+CORS_ALLOW_CREDENTIALS = False 
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://admin-fraccionamientos-production.up.railway.app",
-    "https://web-production-619e0.up.railway.app",
-    "https://*.railway.app",
-    "https://*.up.railway.app",
-]
-
-# Headers permitidos (Agregamos 'content-disposition' para que baje el PDF)
+# Mantenemos los headers necesarios
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "content-disposition",
     "accept-encoding",
@@ -150,6 +138,7 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "authorization",
 ]
 
+# Configuración de DRF (Sin cambios, solo confirmando)
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',

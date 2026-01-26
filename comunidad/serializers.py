@@ -18,24 +18,33 @@ class ComentarioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comentario
         fields = '__all__'
+        # ✅ CORRECCIÓN: Autor y fecha son automáticos
+        read_only_fields = ('autor', 'fecha')
 
 class PublicacionSerializer(serializers.ModelSerializer):
     autor_nombre = serializers.ReadOnlyField(source='autor.username')
-    autor_avatar = serializers.ImageField(source='autor.avatar', read_only=True)
+    # Usamos ReadOnlyField para evitar errores si no hay imagen
+    autor_avatar = serializers.ReadOnlyField(source='autor.perfil.foto.url') 
     comentarios = ComentarioSerializer(many=True, read_only=True)
+    
     class Meta:
         model = Publicacion
         fields = '__all__'
+        # ✅ CORRECCIÓN VITAL: Esto evita el Error 400
+        read_only_fields = ('autor', 'fecha')
 
 class QuejaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Queja
         fields = '__all__'
+        # ✅ CORRECCIÓN VITAL: Autor, fecha y estado son automáticos
+        read_only_fields = ('autor', 'fecha', 'estado', 'respuesta_admin')
 
 class AvisoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Aviso
         fields = '__all__'
+        read_only_fields = ('fecha_creacion',)
 
 # --- SERIALIZERS NUEVOS PARA DIRECTORIO ---
 class CalificacionServicioSerializer(serializers.ModelSerializer):
@@ -43,6 +52,7 @@ class CalificacionServicioSerializer(serializers.ModelSerializer):
     class Meta:
         model = CalificacionServicio
         fields = ['id', 'estrellas', 'comentario', 'autor_nombre', 'fecha']
+        read_only_fields = ('usuario', 'fecha')
 
 class ServicioExternoSerializer(serializers.ModelSerializer):
     promedio = serializers.SerializerMethodField()
@@ -52,6 +62,8 @@ class ServicioExternoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ServicioExterno
         fields = '__all__'
+        # ✅ CORRECCIÓN: Campos automáticos
+        read_only_fields = ('creado_por', 'fecha_registro')
 
     def get_promedio(self, obj):
         prom = obj.calificaciones.aggregate(Avg('estrellas'))['estrellas__avg']

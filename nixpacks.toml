@@ -1,11 +1,12 @@
-# nixpacks.toml
+# nixpacks.toml CORREGIDO
 
+# Mantenemos los proveedores (esto instalará Node y Python automáticamente)
 providers = ["python", "node"]
 
 [phases.setup]
+# ❌ QUITAMOS "nodejs" de aquí para evitar el choque
 nixPkgs = [
     "python3", 
-    "nodejs", 
     "cairo", 
     "pango", 
     "gdk-pixbuf", 
@@ -24,4 +25,3 @@ cmds = [
 
 [start]
 cmd = "gunicorn core.wsgi:application --bind 0.0.0.0:$PORT"
-# v2

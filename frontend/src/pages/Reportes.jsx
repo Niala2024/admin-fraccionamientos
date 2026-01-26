@@ -29,7 +29,7 @@ function Reportes() {
   const [pagos, setPagos] = useState([]);
   const [egresos, setEgresos] = useState([]);
   const [casas, setCasas] = useState([]);
-  const [usuarios, setUsuarios] = useState([]); // Aquí guardaremos la lista para el select
+  const [usuarios, setUsuarios] = useState([]); 
   const [totalIngresos, setTotalIngresos] = useState(0);
   const [totalEgresos, setTotalEgresos] = useState(0);
 
@@ -37,9 +37,8 @@ function Reportes() {
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
   
-  // ✅ NUEVO: Estados para la selección múltiple
-  const [modoEnvio, setModoEnvio] = useState('todos'); // 'todos' o 'seleccion'
-  const [seleccionados, setSeleccionados] = useState([]); // Array de IDs [1, 5, 8...]
+  const [modoEnvio, setModoEnvio] = useState('todos'); 
+  const [seleccionados, setSeleccionados] = useState([]); 
 
   useEffect(() => {
     cargarDatos();
@@ -99,18 +98,28 @@ function Reportes() {
   const handleEnviarEmail = async () => {
       if(!fechaInicio || !fechaFin) return alert("Selecciona las fechas");
       
-      // ✅ VALIDACIÓN: Si es manual, debe haber al menos uno seleccionado
+      // ✅ FILTRO DE SEGURIDAD: Identificamos usuarios que NO son vigilantes
+      const vecinosFiltrados = usuarios.filter(u => 
+        u.email && 
+        !(u.rol && u.rol.toLowerCase().includes('vigilante'))
+      );
+
       if(modoEnvio === 'seleccion' && seleccionados.length === 0) {
           return alert("Por favor selecciona al menos un vecino de la lista.");
       }
 
-      if(!confirm(`¿Enviar reporte a ${modoEnvio === 'todos' ? 'TODOS' : seleccionados.length + ' vecinos'}?`)) return;
+      // Calculamos la cantidad real para el mensaje de confirmación
+      const cantidadDestinatarios = modoEnvio === 'todos' ? vecinosFiltrados.length : seleccionados.length;
+
+      if(!confirm(`¿Enviar reporte a ${cantidadDestinatarios} destinatarios? (Los vigilantes han sido excluidos automáticamente).`)) return;
       
       setLoading(true);
       const token = localStorage.getItem('token');
 
-      // ✅ LÓGICA: Enviamos 'todos' O la lista de IDs
-      const payloadDestinatarios = modoEnvio === 'todos' ? 'todos' : seleccionados;
+      // ✅ LÓGICA: Si es 'todos', enviamos los IDs de los vecinos filtrados
+      const payloadDestinatarios = modoEnvio === 'todos' 
+        ? vecinosFiltrados.map(v => v.id) 
+        : seleccionados;
 
       try {
           const res = await axios.post(`${API_BASE}/generar-reporte/`, {
@@ -121,15 +130,13 @@ function Reportes() {
           alert(res.data.status);
       } catch(e) { 
           console.error(e);
-          alert("Error al enviar correos. Verifica la consola."); 
+          alert("Error al enviar correos."); 
       }
       setLoading(false);
   };
 
-  // Maneja el cambio en el select múltiple
   const handleChangeSeleccion = (event) => {
     const { value } = event.target;
-    // En material UI multiple select, value es siempre un array
     setSeleccionados(typeof value === 'string' ? value.split(',') : value);
   };
 
@@ -154,11 +161,10 @@ function Reportes() {
             <Paper sx={{ p: 4 }}>
                 <Typography variant="h5" gutterBottom color="primary" align="center">Generar y Enviar Estado Financiero</Typography>
                 <Typography paragraph color="text.secondary" align="center">
-                    Selecciona el periodo para generar el reporte. Puedes enviarlo masivamente o seleccionar destinatarios.
+                    Selecciona el periodo para generar el reporte. Los vigilantes están excluidos de este envío por seguridad.
                 </Typography>
                 
                 <Grid container spacing={3} justifyContent="center" sx={{mt:2}}>
-                    {/* Fechas */}
                     <Grid item xs={12} md={5}>
                         <TextField fullWidth label="Fecha Inicio" type="date" InputLabelProps={{shrink: true}} value={fechaInicio} onChange={(e)=>setFechaInicio(e.target.value)} />
                     </Grid>
@@ -166,18 +172,16 @@ function Reportes() {
                         <TextField fullWidth label="Fecha Fin" type="date" InputLabelProps={{shrink: true}} value={fechaFin} onChange={(e)=>setFechaFin(e.target.value)} />
                     </Grid>
 
-                    {/* ✅ SECCIÓN DE DESTINATARIOS MEJORADA */}
                     <Grid item xs={12} md={10}>
                         <Paper variant="outlined" sx={{ p: 2, bgcolor: '#fafafa' }}>
                             <FormControl component="fieldset">
                                 <FormLabel component="legend">¿A quién enviar el reporte?</FormLabel>
                                 <RadioGroup row value={modoEnvio} onChange={(e) => setModoEnvio(e.target.value)}>
-                                    <FormControlLabel value="todos" control={<Radio />} label="Todos los Vecinos (Activos)" />
+                                    <FormControlLabel value="todos" control={<Radio />} label="Todos los Vecinos (Sin Vigilantes)" />
                                     <FormControlLabel value="seleccion" control={<Radio />} label="Seleccionar Vecinos / Bloques" />
                                 </RadioGroup>
                             </FormControl>
 
-                            {/* SELECTOR MÚLTIPLE (Solo visible si eliges 'seleccion') */}
                             {modoEnvio === 'seleccion' && (
                                 <FormControl fullWidth sx={{ mt: 2 }}>
                                     <InputLabel>Selecciona los Vecinos</InputLabel>
@@ -187,10 +191,12 @@ function Reportes() {
                                         onChange={handleChangeSeleccion}
                                         input={<OutlinedInput label="Selecciona los Vecinos" />}
                                         renderValue={(selected) => `${selected.length} vecinos seleccionados`}
-                                        MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }} // Scroll si son muchos
+                                        MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }}
                                     >
                                         {usuarios
-                                            .filter(u => u.email) // Solo mostrar gente con email
+                                            .filter(u => u.email) 
+                                            // ✅ FILTRO DE SEGURIDAD: No mostrar vigilantes en la lista manual
+                                            .filter(u => !(u.rol && u.rol.toLowerCase().includes('vigilante')))
                                             .map((u) => (
                                             <MenuItem key={u.id} value={u.id}>
                                                 <Checkbox checked={seleccionados.indexOf(u.id) > -1} />
@@ -202,7 +208,7 @@ function Reportes() {
                                         ))}
                                     </Select>
                                     <Typography variant="caption" color="text.secondary" sx={{mt:1}}>
-                                        * Solo se muestran usuarios con email registrado.
+                                        * Solo se muestran vecinos con email registrado. Los vigilantes no aparecen en esta lista.
                                     </Typography>
                                 </FormControl>
                             )}
@@ -215,7 +221,7 @@ function Reportes() {
                         Descargar PDF (Vista Previa)
                     </Button>
                     <Button variant="contained" size="large" color="success" startIcon={loading ? <CircularProgress size={20} color="inherit"/> : <EmailIcon />} onClick={handleEnviarEmail} disabled={loading}>
-                        {loading ? "Enviando..." : `Enviar Correo (${modoEnvio === 'todos' ? 'Todos' : seleccionados.length})`}
+                        {loading ? "Enviando..." : `Enviar Correo (${modoEnvio === 'todos' ? 'Vecinos' : seleccionados.length})`}
                     </Button>
                 </Box>
             </Paper>
@@ -267,4 +273,3 @@ function Reportes() {
 }
 
 export default Reportes;
-// Este es el bueno

@@ -16,11 +16,11 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import EditIcon from '@mui/icons-material/Edit';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import VideocamIcon from '@mui/icons-material/Videocam'; 
-import ShareIcon from '@mui/icons-material/Share'; // ✅ NUEVO ICONO
+import ShareIcon from '@mui/icons-material/Share'; // ✅ ICONO COMPARTIR
 
-// ✅ NUEVAS IMPORTACIONES PARA REDES SOCIALES
+// ✅ IMPORTACIONES DE REDES SOCIALES
 import {
-  FacebookShareButton, FacebookIcon as FacebookShareIcon,
+  FacebookShareButton, FacebookIcon,
   WhatsappShareButton, WhatsappIcon,
   TwitterShareButton, TwitterIcon,
   EmailShareButton, EmailIcon
@@ -30,6 +30,7 @@ import { Chart } from "react-google-charts";
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axiosConfig'; 
 
+// Asegúrate de tener esta imagen en src/assets/portada.png
 import portadaFija from '../assets/portada.png'; 
 
 function Comunidad() {
@@ -52,18 +53,18 @@ function Comunidad() {
   const [nuevaEncuesta, setNuevaEncuesta] = useState({ titulo: '', descripcion: '' });
   const [opcionesDinamicas, setOpcionesDinamicas] = useState(["", ""]); 
   
-  // Post (Foro)
+  // Post (Foro) - CREAR
   const [openPost, setOpenPost] = useState(false);
   const [formPost, setFormPost] = useState({ titulo: '', contenido: '', tipo: 'SOCIAL' });
   const [archivoImagenPost, setArchivoImagenPost] = useState(null); 
   const [archivoVideoPost, setArchivoVideoPost] = useState(null);   
 
-  // Post Editar
+  // Post (Foro) - EDITAR
   const [openEditPost, setOpenEditPost] = useState(false);
   const [idPostEditar, setIdPostEditar] = useState(null);
   const [formEditPost, setFormEditPost] = useState({ titulo: '', contenido: '' });
 
-  // ✅ LOGICA COMPARTIR
+  // ✅ ESTADO PARA MENÚ COMPARTIR
   const [anchorElShare, setAnchorElShare] = useState(null);
   const [postToShare, setPostToShare] = useState(null);
   const openShareMenu = Boolean(anchorElShare);
@@ -78,6 +79,7 @@ function Comunidad() {
   const [openAviso, setOpenAviso] = useState(false);
   const [formAviso, setFormAviso] = useState({ titulo: '', mensaje: '' });
 
+  // DATOS USUARIO
   const userDataStr = localStorage.getItem('user_data');
   const userData = userDataStr ? JSON.parse(userDataStr) : null;
   const userRol = localStorage.getItem('rol');
@@ -122,7 +124,7 @@ function Comunidad() {
 
   useEffect(() => { cargarDatos(); }, [tabIndex]);
 
-  // --- COMPARTIR ---
+  // --- LÓGICA COMPARTIR ---
   const handleShareClick = (event, post) => {
     setAnchorElShare(event.currentTarget);
     setPostToShare(post);
@@ -138,24 +140,33 @@ function Comunidad() {
       try { await api.post('/api/avisos/', formAviso, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); setOpenAviso(false); setFormAviso({titulo:'', mensaje:''}); cargarDatos(); alert("Aviso publicado"); } catch(e) { alert("Error"); }
   };
   const borrarAviso = async (id) => { if(!confirm("¿Borrar?")) return; try { await api.delete(`/api/avisos/${id}/`, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); cargarDatos(); } catch(e){ alert("Error"); } };
+  
   const handleOpenEditHeader = () => { if(infoComunidad) { setFormHeader({ titulo: infoComunidad.titulo_header || infoComunidad.nombre }); } setOpenEditHeader(true); };
   const handleSaveHeader = async () => { if(!infoComunidad) return; const fd = new FormData(); fd.append('titulo_header', formHeader.titulo); try { await api.patch(`/api/fraccionamientos/${infoComunidad.id}/`, fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); alert("Título actualizado"); setOpenEditHeader(false); cargarDatos(); } catch(e) { console.error(e); } };
+
   const handleOpcionChange = (i,v) => { const n=[...opcionesDinamicas]; n[i]=v; setOpcionesDinamicas(n); };
   const crearEncuesta = async () => { try { await api.post('/api/encuestas/', { titulo: nuevaEncuesta.titulo, descripcion: nuevaEncuesta.descripcion, opciones: opcionesDinamicas }, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); setOpenEncuesta(false); cargarDatos(); } catch(e){ alert("Error"); } };
   const votar = async (eId, oId) => { try { await api.post(`/api/encuestas/${eId}/votar/`, { opcion_id: oId }, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); alert("Voto OK"); cargarDatos(); } catch(e){alert("Error");} };
   
+  // --- ACCIONES FORO ---
   const crearPost = async () => { 
       const fd = new FormData(); fd.append('titulo',formPost.titulo); fd.append('contenido',formPost.contenido); fd.append('tipo',formPost.tipo); 
       if(archivoImagenPost) fd.append('imagen', archivoImagenPost); if(archivoVideoPost) fd.append('video', archivoVideoPost); 
       try { await api.post('/api/foro/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': undefined } }); setOpenPost(false); setArchivoImagenPost(null); setArchivoVideoPost(null); cargarDatos(); } catch(e){ alert("Error"); } 
   };
-  const borrarPost = async (id) => { if(!confirm("¿Eliminar?")) return; try { await api.delete(`/api/foro/${id}/`, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); alert("Eliminado"); cargarDatos(); } catch (e) { alert("Error de permisos."); } };
+  
+  // ✅ BORRAR POST
+  const borrarPost = async (id) => { if(!confirm("¿Eliminar publicación?")) return; try { await api.delete(`/api/foro/${id}/`, { headers: { Authorization: `Token ${localStorage.getItem('token')}` } }); alert("Eliminado"); cargarDatos(); } catch (e) { alert("Error de permisos."); } };
+  
+  // ✅ EDITAR POST
   const abrirEditarPost = (post) => { setIdPostEditar(post.id); setFormEditPost({ titulo: post.titulo, contenido: post.contenido }); setOpenEditPost(true); };
   const guardarEdicionPost = async () => { try { const fd = new FormData(); fd.append('titulo', formEditPost.titulo); fd.append('contenido', formEditPost.contenido); await api.patch(`/api/foro/${idPostEditar}/`, fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': undefined } }); alert("Actualizado"); setOpenEditPost(false); cargarDatos(); } catch (e) { alert("Error al editar."); } };
+
   const crearQueja = async () => { const fd = new FormData(); fd.append('asunto', formQueja.asunto); fd.append('descripcion', formQueja.descripcion); if(archivoImagenQueja) fd.append('imagen', archivoImagenQueja); if(archivoVideoQueja) fd.append('video', archivoVideoQueja); try { await api.post('/api/quejas/', fd, { headers: { Authorization: `Token ${localStorage.getItem('token')}`, 'Content-Type': undefined } }); setOpenQueja(false); setArchivoImagenQueja(null); setArchivoVideoQueja(null); alert("Enviada"); cargarDatos(); } catch(e){ alert("Error"); } };
 
   return (
     <Box sx={{ flexGrow: 1, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
+      {/* HEADER */}
       <Box sx={{ position: 'relative', bgcolor: '#4a148c', color: 'white', backgroundImage: `url(${portadaFija})`, backgroundSize: 'cover', backgroundPosition: 'center', p: 4, pt: 8, pb: 8, boxShadow: 3 }}>
           <Box sx={{position:'absolute', top:0, left:0, width:'100%', height:'100%', bgcolor:'rgba(0,0,0,0.5)'}} />
           <Container sx={{position:'relative', zIndex:1}}>
@@ -178,6 +189,7 @@ function Comunidad() {
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         {loading && <LinearProgress sx={{mb:2}} />}
 
+        {/* TAB AVISOS */}
         {tabIndex === 0 && (
             <Grid container spacing={3}>
                 {isAdmin && <Grid item xs={12} textAlign="right"><Button variant="contained" color="warning" startIcon={<CampaignIcon/>} onClick={()=>setOpenAviso(true)}>Nuevo Aviso</Button></Grid>}
@@ -195,6 +207,7 @@ function Comunidad() {
             </Grid>
         )}
 
+        {/* TAB ENCUESTAS */}
         {tabIndex === 1 && (
             <Grid container spacing={3}>
                 {isAdmin && <Grid item xs={12} textAlign="right"><Button variant="contained" color="secondary" startIcon={<AddIcon/>} onClick={()=>setOpenEncuesta(true)}>Nueva Encuesta</Button></Grid>}
@@ -217,7 +230,7 @@ function Comunidad() {
             </Grid>
         )}
 
-        {/* --- TAB FORO (POSTS) --- */}
+        {/* TAB FORO (POSTS) */}
         {tabIndex === 2 && (
             <>
                 <Button variant="contained" onClick={() => setOpenPost(true)} sx={{mb:2}}>Publicar Post</Button>
@@ -234,11 +247,11 @@ function Comunidad() {
                                         <Typography variant="caption" color="text.secondary">{new Date(p.fecha).toLocaleDateString()}</Typography>
                                     </Box>
                                     
+                                    {/* ✅ BARRA DE ACCIONES (COMPARTIR, EDITAR, BORRAR) */}
                                     <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
                                         <Chip label={p.tipo} size="small" />
                                         
-                                        {/* ✅ BOTÓN DE COMPARTIR (Visible para todos) */}
-                                        <Tooltip title="Compartir en redes">
+                                        <Tooltip title="Compartir">
                                             <IconButton size="small" color="primary" onClick={(e) => handleShareClick(e, p)}>
                                                 <ShareIcon fontSize="small" />
                                             </IconButton>
@@ -268,6 +281,7 @@ function Comunidad() {
             </>
         )}
 
+        {/* TAB QUEJAS */}
         {tabIndex === 3 && (
             <>
                 <Button variant="contained" color="error" onClick={() => setOpenQueja(true)} sx={{mb:2}}>Nueva Queja</Button>
@@ -285,7 +299,7 @@ function Comunidad() {
         )}
       </Container>
 
-      {/* ✅ MENÚ DE COMPARTIR */}
+      {/* ✅ MENÚ FLOTANTE COMPARTIR */}
       <Menu
         anchorEl={anchorElShare}
         open={openShareMenu}
@@ -294,65 +308,40 @@ function Comunidad() {
       >
         <Typography variant="subtitle2" sx={{px:2, py:1, textAlign:'center', color:'gray'}}>Compartir en:</Typography>
         <Divider sx={{mb:1}}/>
-        
-        {/* WhatsApp */}
         <MenuItem onClick={handleShareClose}>
-           <WhatsappShareButton 
-                url={window.location.href} // O tu URL pública si tienes
-                title={`*${postToShare?.titulo}*\n${postToShare?.contenido}\n\n`}
-                separator=" - "
-                style={{display:'flex', alignItems:'center', width:'100%'}}
-           >
-               <WhatsappIcon size={32} round style={{marginRight: 10}} />
-               <Typography>WhatsApp</Typography>
+           <WhatsappShareButton url={window.location.href} title={`*${postToShare?.titulo}*\n${postToShare?.contenido}\n\n`} separator=" - " style={{display:'flex', alignItems:'center', width:'100%'}}>
+               <WhatsappIcon size={32} round style={{marginRight: 10}} /><Typography>WhatsApp</Typography>
            </WhatsappShareButton>
         </MenuItem>
-
-        {/* Facebook */}
         <MenuItem onClick={handleShareClose}>
-           <FacebookShareButton 
-                url={"https://misioncountry.com"} // Facebook OBLIGA a que sea una URL válida pública
-                quote={postToShare?.titulo}
-                style={{display:'flex', alignItems:'center', width:'100%'}}
-           >
-               <FacebookShareIcon size={32} round style={{marginRight: 10}} />
-               <Typography>Facebook</Typography>
+           <FacebookShareButton url={"https://misioncountry.com"} quote={postToShare?.titulo} style={{display:'flex', alignItems:'center', width:'100%'}}>
+               <FacebookShareIcon size={32} round style={{marginRight: 10}} /><Typography>Facebook</Typography>
            </FacebookShareButton>
         </MenuItem>
-
-        {/* Twitter / X */}
         <MenuItem onClick={handleShareClose}>
-           <TwitterShareButton 
-                url={window.location.href}
-                title={postToShare?.titulo}
-                style={{display:'flex', alignItems:'center', width:'100%'}}
-           >
-               <TwitterIcon size={32} round style={{marginRight: 10}} />
-               <Typography>Twitter (X)</Typography>
+           <TwitterShareButton url={window.location.href} title={postToShare?.titulo} style={{display:'flex', alignItems:'center', width:'100%'}}>
+               <TwitterIcon size={32} round style={{marginRight: 10}} /><Typography>Twitter (X)</Typography>
            </TwitterShareButton>
         </MenuItem>
-
-         {/* Email */}
          <MenuItem onClick={handleShareClose}>
-           <EmailShareButton 
-                url={window.location.href}
-                subject={`Misión Country: ${postToShare?.titulo}`}
-                body={postToShare?.contenido}
-                style={{display:'flex', alignItems:'center', width:'100%'}}
-           >
-               <EmailIcon size={32} round style={{marginRight: 10}} />
-               <Typography>Correo</Typography>
+           <EmailShareButton url={window.location.href} subject={`Misión Country: ${postToShare?.titulo}`} body={postToShare?.contenido} style={{display:'flex', alignItems:'center', width:'100%'}}>
+               <EmailIcon size={32} round style={{marginRight: 10}} /><Typography>Correo</Typography>
            </EmailShareButton>
         </MenuItem>
       </Menu>
 
-      {/* RESTO DE MODALES (SIN CAMBIOS) */}
+      {/* MODALES */}
       <Dialog open={openEditHeader} onClose={()=>setOpenEditHeader(false)}><DialogTitle>Personalizar Título</DialogTitle><DialogContent><TextField margin="dense" label="Título del Encabezado" fullWidth value={formHeader.titulo} onChange={(e)=>setFormHeader({...formHeader, titulo:e.target.value})} /></DialogContent><DialogActions><Button onClick={()=>setOpenEditHeader(false)}>Cancelar</Button><Button onClick={handleSaveHeader} variant="contained">Guardar</Button></DialogActions></Dialog>
       <Dialog open={openAviso} onClose={()=>setOpenAviso(false)} fullWidth maxWidth="sm"><DialogTitle sx={{bgcolor:'#ff9800', color:'white'}}>Nuevo Aviso General</DialogTitle><DialogContent sx={{mt:2}}><TextField label="Título del Aviso" fullWidth value={formAviso.titulo} onChange={(e)=>setFormAviso({...formAviso, titulo:e.target.value})} sx={{mb:2}} /><TextField label="Mensaje" multiline rows={4} fullWidth value={formAviso.mensaje} onChange={(e)=>setFormAviso({...formAviso, mensaje:e.target.value})} /></DialogContent><DialogActions><Button onClick={()=>setOpenAviso(false)}>Cancelar</Button><Button onClick={crearAviso} variant="contained" color="warning">Publicar</Button></DialogActions></Dialog>
       <Dialog open={openEncuesta} onClose={()=>setOpenEncuesta(false)}><DialogTitle>Nueva Encuesta</DialogTitle><DialogContent><TextField fullWidth label="Título" value={nuevaEncuesta.titulo} onChange={(e)=>setNuevaEncuesta({...nuevaEncuesta, titulo:e.target.value})}/><Box mt={1}>{opcionesDinamicas.map((op,i)=><TextField key={i} fullWidth size="small" placeholder={`Opción ${i+1}`} value={op} onChange={(e)=>handleOpcionChange(i,e.target.value)} sx={{mb:1}}/>)}<Button onClick={()=>setOpcionesDinamicas([...opcionesDinamicas,""])}>+ Opción</Button></Box></DialogContent><DialogActions><Button onClick={crearEncuesta}>Publicar</Button></DialogActions></Dialog>
+      
+      {/* CREAR POST */}
       <Dialog open={openPost} onClose={()=>setOpenPost(false)} fullWidth maxWidth="sm"><DialogTitle>Nuevo Post</DialogTitle><DialogContent><TextField fullWidth label="Título" margin="dense" onChange={(e)=>setFormPost({...formPost, titulo:e.target.value})}/><TextField fullWidth multiline rows={3} margin="dense" label="Contenido" onChange={(e)=>setFormPost({...formPost, contenido:e.target.value})}/><Box display="flex" gap={2} mt={2}><Button variant="outlined" component="label" startIcon={<PhotoCamera/>}>{archivoImagenPost ? "Foto Seleccionada" : "Foto"}<input type="file" hidden accept="image/*" onChange={(e)=>setArchivoImagenPost(e.target.files[0])}/></Button><Button variant="outlined" component="label" startIcon={<VideocamIcon/>}>{archivoVideoPost ? "Video Seleccionado" : "Video"}<input type="file" hidden accept="video/*" onChange={(e)=>setArchivoVideoPost(e.target.files[0])}/></Button></Box></DialogContent><DialogActions><Button onClick={()=>setOpenPost(false)}>Cancelar</Button><Button onClick={crearPost} variant="contained">Publicar</Button></DialogActions></Dialog>
+
+      {/* ✅ EDITAR POST */}
       <Dialog open={openEditPost} onClose={()=>setOpenEditPost(false)} fullWidth maxWidth="sm"><DialogTitle>Editar Publicación</DialogTitle><DialogContent><TextField fullWidth label="Título" margin="dense" value={formEditPost.titulo} onChange={(e)=>setFormEditPost({...formEditPost, titulo:e.target.value})}/><TextField fullWidth multiline rows={3} margin="dense" label="Contenido" value={formEditPost.contenido} onChange={(e)=>setFormEditPost({...formEditPost, contenido:e.target.value})}/></DialogContent><DialogActions><Button onClick={()=>setOpenEditPost(false)}>Cancelar</Button><Button onClick={guardarEdicionPost} variant="contained" color="primary">Guardar Cambios</Button></DialogActions></Dialog>
-      <Dialog open={openQueja} onClose={()=>setOpenQueja(false)} fullWidth maxWidth="sm"><DialogTitle>Nueva Queja</DialogTitle><DialogContent><TextField fullWidth label="Asunto" margin="dense" onChange={(e)=>setFormQueja({...formQueja, asunto:e.target.value})}/><TextField fullWidth multiline rows={3} margin="dense" label="Detalle de la queja" onChange={(e)=>setFormQueja({...formQueja, descripcion:e.target.value})}/><Typography variant="caption" display="block" sx={{mt:2, mb:1}}>Evidencia (Opcional):</Typography><Box display="flex" gap={2}><Button variant="outlined" component="label" startIcon={<PhotoCamera/>}>{archivoImagenQueja ? "Foto Lista" : "Foto"}<input type="file" hidden accept="image/*" onChange={(e)=>setArchivoImagenQueja(e.target.files[0])}/></Button><Button variant="outlined" component="label" startIcon={<VideocamIcon/>}>{archivoVideoQueja ? "Video Listo" : "Video"}<input type="file" hidden accept="video/*" onChange={(e)=>setArchivoVideoQueja(e.target.files[0])}/></Button></Box></DialogContent><DialogActions><Button onClick={()=>setOpenQueja(false)}>Cancelar</Button><Button onClick={crearQueja} variant="contained" color="error">Enviar</Button></DialogActions></Dialog>
+
+      <Dialog open={openQueja} onClose={()=>setOpenQueja(false)} fullWidth maxWidth="sm"><DialogTitle>Nueva Queja</DialogTitle><DialogContent><TextField fullWidth label="Asunto" margin="dense" onChange={(e)=>setFormQueja({...formQueja, asunto:e.target.value})}/><TextField fullWidth multiline rows={3} margin="dense" label="Detalle de la queja" onChange={(e)=>setFormQueja({...formQueja, descripcion:e.target.value})}/><Typography variant="caption" display="block" sx={{mt:2, mb:1}}>Evidencia (Opcional):</Typography><Box display=\"flex\" gap={2}><Button variant=\"outlined\" component=\"label\" startIcon={<PhotoCamera/>}>{archivoImagenQueja ? "Foto Lista" : "Foto"}<input type="file" hidden accept="image/*" onChange={(e)=>setArchivoImagenQueja(e.target.files[0])}/></Button><Button variant=\"outlined\" component=\"label\" startIcon={<VideocamIcon/>}>{archivoVideoQueja ? "Video Listo" : "Video"}<input type="file" hidden accept="video/*" onChange={(e)=>setArchivoVideoQueja(e.target.files[0])}/></Button></Box></DialogContent><DialogActions><Button onClick={()=>setOpenQueja(false)}>Cancelar</Button><Button onClick={crearQueja} variant="contained" color="error">Enviar</Button></DialogActions></Dialog>
     </Box>
   );
 }

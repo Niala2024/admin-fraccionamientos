@@ -1,30 +1,26 @@
-# nixpacks.toml CORREGIDO
+# nixpacks.toml
 
-# 1. Proveedores principales
 providers = ["python", "node"]
 
-# 2. INSTALACIÓN DE LIBRERÍAS DE LINUX (¡ESTO FALTABA!)
 [phases.setup]
 nixPkgs = [
-    "python3",
-    "nodejs",
-    "cairo",
-    "pango",
-    "gdk-pixbuf",
-    "libffi",
+    "python3", 
+    "nodejs", 
+    "cairo", 
+    "pango", 
+    "gdk-pixbuf", 
+    "libffi", 
     "gcc"
 ]
 
-# 3. Construcción del Proyecto
 [phases.build]
 cmds = [
     "cd frontend && npm install && npm run build",
     "pip install -r requirements.txt",
     "python manage.py collectstatic --noinput",
     "python manage.py migrate",
-    "python manage.py createsuperuser --noinput || echo 'El usuario ya existe'"
+    "python manage.py createsuperuser --noinput || echo 'Admin existe'"
 ]
 
-# 4. Arranque
 [start]
 cmd = "gunicorn core.wsgi:application --bind 0.0.0.0:$PORT"

@@ -42,9 +42,13 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',            # ✅ Vital: Debe ir primero
+    # ⚠️ IMPORTANTE: CorsMiddleware debe ser el primero o segundo
+    'corsheaders.middleware.CorsMiddleware',  
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    
+    # Esta línea es vital para que Railway sirva archivos estáticos (CSS/JS)
+    'whitenoise.middleware.WhiteNoiseMiddleware', 
+    
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',

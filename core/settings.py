@@ -119,7 +119,7 @@ DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
 # Importamos los headers por defecto para agregar los de PDF
 from corsheaders.defaults import default_headers
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 
 # Lista explícita de tus dominios (Frontend y Backend) para evitar bloqueos

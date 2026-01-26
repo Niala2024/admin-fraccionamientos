@@ -44,6 +44,23 @@ function Reportes() {
     cargarDatos();
   }, []);
 
+  // --- FUNCIÓN DE SEGURIDAD CENTRALIZADA ---
+  // Devuelve TRUE si detecta que el usuario es vigilante
+  const esVigilante = (u) => {
+      const rol = (u.rol || '').toLowerCase();
+      const nombre = (u.first_name || '').toLowerCase();
+      const apellido = (u.last_name || '').toLowerCase();
+      const username = (u.username || '').toLowerCase();
+
+      // Si CUALQUIERA dice vigilante, es vigilante
+      if (rol.includes('vigilante')) return true;
+      if (nombre.includes('vigilante')) return true;
+      if (apellido.includes('vigilante')) return true;
+      if (username.includes('vigilante')) return true;
+      
+      return false;
+  };
+
   const cargarDatos = async () => {
       const token = localStorage.getItem('token');
       if (!token) return;
@@ -98,10 +115,9 @@ function Reportes() {
   const handleEnviarEmail = async () => {
       if(!fechaInicio || !fechaFin) return alert("Selecciona las fechas");
       
-      // ✅ FILTRO DE SEGURIDAD: Identificamos usuarios que NO son vigilantes
+      // ✅ FILTRO DE SEGURIDAD (Usando la función blindada)
       const vecinosFiltrados = usuarios.filter(u => 
-        u.email && 
-        !(u.rol && u.rol.toLowerCase().includes('vigilante'))
+        u.email && !esVigilante(u)
       );
 
       if(modoEnvio === 'seleccion' && seleccionados.length === 0) {
@@ -116,7 +132,7 @@ function Reportes() {
       setLoading(true);
       const token = localStorage.getItem('token');
 
-      // ✅ LÓGICA: Si es 'todos', enviamos los IDs de los vecinos filtrados
+      // ✅ LÓGICA: Si es 'todos', enviamos los IDs filtrados
       const payloadDestinatarios = modoEnvio === 'todos' 
         ? vecinosFiltrados.map(v => v.id) 
         : seleccionados;
@@ -195,13 +211,13 @@ function Reportes() {
                                     >
                                         {usuarios
                                             .filter(u => u.email) 
-                                            // ✅ FILTRO DE SEGURIDAD: No mostrar vigilantes en la lista manual
-                                            .filter(u => !(u.rol && u.rol.toLowerCase().includes('vigilante')))
+                                            // ✅ FILTRO DE SEGURIDAD VISUAL (Usando la misma función blindada)
+                                            .filter(u => !esVigilante(u))
                                             .map((u) => (
                                             <MenuItem key={u.id} value={u.id}>
                                                 <Checkbox checked={seleccionados.indexOf(u.id) > -1} />
                                                 <ListItemText 
-                                                    primary={`${u.first_name} ${u.last_name} (${u.username})`} 
+                                                    primary={`${u.first_name} ${u.last_name}`} 
                                                     secondary={u.email} 
                                                 />
                                             </MenuItem>

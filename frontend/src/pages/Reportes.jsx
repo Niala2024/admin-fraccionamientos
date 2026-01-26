@@ -14,12 +14,16 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Footer from '../components/Footer';
 
+// ✅ SOLUCIÓN: Definimos la URL correcta aquí arriba UNA SOLA VEZ.
+const API_BASE = window.location.hostname === 'localhost'
+    ? 'http://127.0.0.1:8000/api'
+    : 'https://admin-fraccionamientos-production.up.railway.app/api'; // <--- ¡Esta es la buena!
+
 function Reportes() {
   const navigate = useNavigate();
   const [tabIndex, setTabIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   
-  // Datos generales (Inicializados como Arrays vacíos para seguridad)
   const [pagos, setPagos] = useState([]);
   const [egresos, setEgresos] = useState([]);
   const [casas, setCasas] = useState([]);
@@ -27,7 +31,6 @@ function Reportes() {
   const [totalIngresos, setTotalIngresos] = useState(0);
   const [totalEgresos, setTotalEgresos] = useState(0);
 
-  // Formulario Reporte PDF/Email
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
   const [destinatarios, setDestinatarios] = useState('todos');
@@ -40,27 +43,20 @@ function Reportes() {
       const token = localStorage.getItem('token');
       if (!token) return;
       
-      // Ajustamos URL según entorno
-      const baseUrl = window.location.hostname === 'localhost' 
-        ? 'http://127.0.0.1:8000/api' 
-        : 'https://web-production-619e0.up.railway.app/api';
-
       const config = { headers: { 'Authorization': `Token ${token}` }};
       
       try {
+        // ✅ Usamos la variable API_BASE corregida
         const [resPagos, resEgresos, resCasas, resUsuarios] = await Promise.all([
-            axios.get(`${baseUrl}/pagos/?estado=APROBADO`, config),
-            axios.get(`${baseUrl}/egresos/`, config),
-            axios.get(`${baseUrl}/casas/`, config),
-            axios.get(`${baseUrl}/usuarios/`, config)
+            axios.get(`${API_BASE}/pagos/?estado=APROBADO`, config),
+            axios.get(`${API_BASE}/egresos/`, config),
+            axios.get(`${API_BASE}/casas/`, config),
+            axios.get(`${API_BASE}/usuarios/`, config)
         ]);
         
-        // ✅ CORRECCIÓN ANTI-PANTALLA BLANCA:
-        // Verificamos si Django envió paginación (.results) o lista directa.
         const datosPagos = resPagos.data.results || resPagos.data;
         const datosEgresos = resEgresos.data.results || resEgresos.data;
         const datosCasas = resCasas.data.results || resCasas.data;
-        console.log("DATOS DE CASAS RECIBIDOS:", datosCasas);
         const datosUsuarios = resUsuarios.data.results || resUsuarios.data;
 
         setPagos(Array.isArray(datosPagos) ? datosPagos : []);
@@ -68,7 +64,6 @@ function Reportes() {
         setCasas(Array.isArray(datosCasas) ? datosCasas : []);
         setUsuarios(Array.isArray(datosUsuarios) ? datosUsuarios : []);
 
-        // Calcular totales usando los datos ya limpios
         const safePagos = Array.isArray(datosPagos) ? datosPagos : [];
         const safeEgresos = Array.isArray(datosEgresos) ? datosEgresos : [];
 
@@ -78,14 +73,13 @@ function Reportes() {
       } catch (error) { console.error("Error cargando reportes:", error); }
   };
 
-  // --- LÓGICA DE REPORTES PDF/EMAIL ---
   const handleDescargarPDF = async () => {
       if(!fechaInicio || !fechaFin) return alert("Selecciona las fechas");
       const token = localStorage.getItem('token');
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://127.0.0.1:8000/api' : 'https://web-production-619e0.up.railway.app/api';
       
       try {
-          const response = await axios.get(`${baseUrl}/generar-reporte/?inicio=${fechaInicio}&fin=${fechaFin}`, {
+          // ✅ Usamos la variable API_BASE corregida
+          const response = await axios.get(`${API_BASE}/generar-reporte/?inicio=${fechaInicio}&fin=${fechaFin}`, {
               headers: { 'Authorization': `Token ${token}` },
               responseType: 'blob' 
           });
@@ -104,10 +98,10 @@ function Reportes() {
       
       setLoading(true);
       const token = localStorage.getItem('token');
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://127.0.0.1:8000/api' : 'https://web-production-619e0.up.railway.app/api';
 
       try {
-          const res = await axios.post(`${baseUrl}/generar-reporte/`, {
+          // ✅ Usamos la variable API_BASE corregida
+          const res = await axios.post(`${API_BASE}/generar-reporte/`, {
               inicio: fechaInicio,
               fin: fechaFin,
               destinatarios: destinatarios
@@ -202,7 +196,6 @@ function Reportes() {
                 <TableContainer component={Paper} sx={{ mb: 4 }}>
                     <Table size="small">
                         <TableHead sx={{bgcolor:'#eee'}}><TableRow><TableCell>Calle</TableCell><TableCell>Número</TableCell><TableCell>Propietario</TableCell><TableCell align="right">Deuda</TableCell></TableRow></TableHead>
-                        {/* ✅ AHORA 'casas' SIEMPRE ES UN ARRAY, NO TRUENA EL MAP */}
                         <TableBody>{casas.map((c) => (<TableRow key={c.id}><TableCell>{c.calle_nombre}</TableCell><TableCell>{c.numero_exterior}</TableCell><TableCell>{c.propietario || "VACANTE"}</TableCell><TableCell align="right" sx={{color: c.saldo_pendiente > 0 ? 'red' : 'black'}}>${c.saldo_pendiente}</TableCell></TableRow>))}</TableBody>
                     </Table>
                 </TableContainer>

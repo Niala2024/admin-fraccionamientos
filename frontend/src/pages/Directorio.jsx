@@ -30,6 +30,12 @@ const CATEGORIAS = [
     {id: 'OTRO', label: 'Otros'},
 ];
 
+// ✅ MEJORA: Definimos la URL una sola vez aquí arriba.
+// ⚠️ IMPORTANTE: REEMPLAZA "TU_NUEVO_BACKEND_AQUI" CON TU URL REAL DE RAILWAY
+const API_BASE = window.location.hostname === 'localhost'
+    ? 'http://127.0.0.1:8000'
+    : 'https://admin-fraccionamientos-production.up.railway.app'; // <--- ¡PON AQUÍ TU URL NUEVA!
+
 function Directorio() {
   const navigate = useNavigate();
   const [servicios, setServicios] = useState([]);
@@ -40,19 +46,15 @@ function Directorio() {
   const [form, setForm] = useState({ nombre: '', categoria: 'PLOMERIA', telefono: '', descripcion: '' });
   const [foto, setFoto] = useState(null);
 
-  // ✅ CORRECCIÓN DE NAVEGACIÓN:
-  // Leemos el objeto completo del usuario para ver si es Superusuario
   const userDataStr = localStorage.getItem('user_data');
   const userData = userDataStr ? JSON.parse(userDataStr) : {};
   
-  // Eres admin si: Tienes la bandera is_superuser, is_staff O si tu rol dice 'admin'
   const soyAdmin = userData.is_superuser === true || userData.is_staff === true || (userData.rol && userData.rol.toLowerCase().includes('admin'));
 
   const cargarDatos = async () => {
     const token = localStorage.getItem('token');
-    const url = window.location.hostname === 'localhost' 
-        ? 'http://127.0.0.1:8000/api/servicios/' 
-        : 'https://web-production-619e0.up.railway.app/api/servicios/';
+    // ✅ Usamos la variable centralizada
+    const url = `${API_BASE}/api/servicios/`;
 
     try {
         const res = await axios.get(url, { headers: { Authorization: `Token ${token}` } });
@@ -73,9 +75,8 @@ function Directorio() {
       Object.keys(form).forEach(key => formData.append(key, form[key]));
       if(foto) formData.append('foto', foto);
 
-      const url = window.location.hostname === 'localhost' 
-        ? 'http://127.0.0.1:8000/api/servicios/' 
-        : 'https://web-production-619e0.up.railway.app/api/servicios/';
+      // ✅ Usamos la variable centralizada
+      const url = `${API_BASE}/api/servicios/`;
 
       try {
           await axios.post(url, formData, { 
@@ -92,9 +93,8 @@ function Directorio() {
   const handleCalificar = async (id, newValue) => {
       if(!newValue) return;
       const token = localStorage.getItem('token');
-      const url = window.location.hostname === 'localhost' 
-        ? `http://127.0.0.1:8000/api/servicios/${id}/calificar/` 
-        : `https://web-production-619e0.up.railway.app/api/servicios/${id}/calificar/`;
+      // ✅ Usamos la variable centralizada
+      const url = `${API_BASE}/api/servicios/${id}/calificar/`;
 
       try {
           await axios.post(url, { estrellas: newValue }, { headers: { Authorization: `Token ${token}` } });
@@ -121,7 +121,6 @@ function Directorio() {
     <Box sx={{ flexGrow: 1, bgcolor: '#f5f5f5', minHeight: '100vh' }}>
       <AppBar position="static" sx={{ bgcolor: '#00695c' }}>
         <Toolbar>
-          {/* ✅ AQUÍ USAMOS LA VARIABLE 'soyAdmin' CORREGIDA */}
           <IconButton edge="start" color="inherit" onClick={() => navigate(soyAdmin ? '/admin-panel' : '/dashboard')} sx={{ mr: 2 }}>
             <ArrowBackIcon />
           </IconButton>
@@ -132,8 +131,6 @@ function Directorio() {
       </AppBar>
 
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-        
-        {/* FILTROS */}
         <Paper sx={{ p: 2, mb: 3 }}>
             <Grid container spacing={2} alignItems="center">
                 <Grid size={{ xs: 12, md: 4 }}>
@@ -156,7 +153,6 @@ function Directorio() {
             </Grid>
         </Paper>
 
-        {/* LISTADO */}
         <Grid container spacing={3}>
             {filtrados.length === 0 ? (
                 <Grid size={{ xs: 12 }}>
@@ -216,7 +212,6 @@ function Directorio() {
         </Grid>
       </Container>
 
-      {/* MODAL NUEVO */}
       <Dialog open={openNuevo} onClose={()=>setOpenNuevo(false)} fullWidth maxWidth="sm">
           <DialogTitle>Recomendar Proveedor</DialogTitle>
           <DialogContent>

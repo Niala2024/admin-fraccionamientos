@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Container, Grid, Paper, Typography, Box, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, AppBar, Toolbar, IconButton, Tab, Tabs, Button,
-  TextField, FormControl, InputLabel, Select, MenuItem, CircularProgress
+  TextField, FormControl, InputLabel, Select, MenuItem, CircularProgress,
+  Radio, RadioGroup, FormControlLabel, FormLabel, Checkbox, ListItemText, OutlinedInput
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
@@ -14,27 +15,31 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Footer from '../components/Footer';
 
-// ✅ CORRECCIÓN: Definimos la URL correcta AQUÍ (Igual que en Directorio)
+// ✅ URL Centralizada
 const API_BASE = window.location.hostname === 'localhost'
     ? 'http://127.0.0.1:8000/api'
     : 'https://admin-fraccionamientos-production.up.railway.app/api'; 
-    // 👆 Asegúrate de que esta URL sea la de tu Railway VIVO
 
 function Reportes() {
   const navigate = useNavigate();
   const [tabIndex, setTabIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   
+  // Datos
   const [pagos, setPagos] = useState([]);
   const [egresos, setEgresos] = useState([]);
   const [casas, setCasas] = useState([]);
-  const [usuarios, setUsuarios] = useState([]);
+  const [usuarios, setUsuarios] = useState([]); // Aquí guardaremos la lista para el select
   const [totalIngresos, setTotalIngresos] = useState(0);
   const [totalEgresos, setTotalEgresos] = useState(0);
 
+  // Formulario Reporte
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
-  const [destinatarios, setDestinatarios] = useState('todos');
+  
+  // ✅ NUEVO: Estados para la selección múltiple
+  const [modoEnvio, setModoEnvio] = useState('todos'); // 'todos' o 'seleccion'
+  const [seleccionados, setSeleccionados] = useState([]); // Array de IDs [1, 5, 8...]
 
   useEffect(() => {
     cargarDatos();
@@ -47,7 +52,6 @@ function Reportes() {
       const config = { headers: { 'Authorization': `Token ${token}` }};
       
       try {
-        // ✅ AQUI estaba el error. Ahora usamos API_BASE
         const [resPagos, resEgresos, resCasas, resUsuarios] = await Promise.all([
             axios.get(`${API_BASE}/pagos/?estado=APROBADO`, config),
             axios.get(`${API_BASE}/egresos/`, config),
@@ -79,7 +83,6 @@ function Reportes() {
       const token = localStorage.getItem('token');
       
       try {
-          // ✅ AQUI estaba el segundo error. Usamos API_BASE
           const response = await axios.get(`${API_BASE}/generar-reporte/?inicio=${fechaInicio}&fin=${fechaFin}`, {
               headers: { 'Authorization': `Token ${token}` },
               responseType: 'blob' 
@@ -95,21 +98,39 @@ function Reportes() {
 
   const handleEnviarEmail = async () => {
       if(!fechaInicio || !fechaFin) return alert("Selecciona las fechas");
-      if(!confirm("¿Enviar este reporte por correo a los vecinos seleccionados?")) return;
+      
+      // ✅ VALIDACIÓN: Si es manual, debe haber al menos uno seleccionado
+      if(modoEnvio === 'seleccion' && seleccionados.length === 0) {
+          return alert("Por favor selecciona al menos un vecino de la lista.");
+      }
+
+      if(!confirm(`¿Enviar reporte a ${modoEnvio === 'todos' ? 'TODOS' : seleccionados.length + ' vecinos'}?`)) return;
       
       setLoading(true);
       const token = localStorage.getItem('token');
 
+      // ✅ LÓGICA: Enviamos 'todos' O la lista de IDs
+      const payloadDestinatarios = modoEnvio === 'todos' ? 'todos' : seleccionados;
+
       try {
-          // ✅ AQUI estaba el tercer error. Usamos API_BASE
           const res = await axios.post(`${API_BASE}/generar-reporte/`, {
               inicio: fechaInicio,
               fin: fechaFin,
-              destinatarios: destinatarios
+              destinatarios: payloadDestinatarios
           }, { headers: { 'Authorization': `Token ${token}` } });
           alert(res.data.status);
-      } catch(e) { alert("Error al enviar correos"); }
+      } catch(e) { 
+          console.error(e);
+          alert("Error al enviar correos. Verifica la consola."); 
+      }
       setLoading(false);
+  };
+
+  // Maneja el cambio en el select múltiple
+  const handleChangeSeleccion = (event) => {
+    const { value } = event.target;
+    // En material UI multiple select, value es siempre un array
+    setSeleccionados(typeof value === 'string' ? value.split(',') : value);
   };
 
   return (
@@ -130,26 +151,62 @@ function Reportes() {
         
         {/* PESTAÑA 0: GENERADOR */}
         {tabIndex === 0 && (
-            <Paper sx={{ p: 4, textAlign: 'center' }}>
-                <Typography variant="h5" gutterBottom color="primary">Generar y Enviar Estado Financiero</Typography>
-                <Typography paragraph color="text.secondary">
-                    Selecciona el periodo (mensual, anual, etc.) para generar el PDF con el balance de Ingresos vs Egresos.
+            <Paper sx={{ p: 4 }}>
+                <Typography variant="h5" gutterBottom color="primary" align="center">Generar y Enviar Estado Financiero</Typography>
+                <Typography paragraph color="text.secondary" align="center">
+                    Selecciona el periodo para generar el reporte. Puedes enviarlo masivamente o seleccionar destinatarios.
                 </Typography>
                 
-                <Grid container spacing={3} justifyContent="center" alignItems="center" sx={{mt:2}}>
-                    <Grid item>
-                        <TextField label="Fecha Inicio" type="date" InputLabelProps={{shrink: true}} value={fechaInicio} onChange={(e)=>setFechaInicio(e.target.value)} />
+                <Grid container spacing={3} justifyContent="center" sx={{mt:2}}>
+                    {/* Fechas */}
+                    <Grid item xs={12} md={5}>
+                        <TextField fullWidth label="Fecha Inicio" type="date" InputLabelProps={{shrink: true}} value={fechaInicio} onChange={(e)=>setFechaInicio(e.target.value)} />
                     </Grid>
-                    <Grid item>
-                        <TextField label="Fecha Fin" type="date" InputLabelProps={{shrink: true}} value={fechaFin} onChange={(e)=>setFechaFin(e.target.value)} />
+                    <Grid item xs={12} md={5}>
+                        <TextField fullWidth label="Fecha Fin" type="date" InputLabelProps={{shrink: true}} value={fechaFin} onChange={(e)=>setFechaFin(e.target.value)} />
                     </Grid>
-                    <Grid item sx={{minWidth: 200}}>
-                        <FormControl fullWidth>
-                            <InputLabel>Enviar a:</InputLabel>
-                            <Select value={destinatarios} label="Enviar a:" onChange={(e)=>setDestinatarios(e.target.value)}>
-                                <MenuItem value="todos">Todos los Vecinos Activos</MenuItem>
-                            </Select>
-                        </FormControl>
+
+                    {/* ✅ SECCIÓN DE DESTINATARIOS MEJORADA */}
+                    <Grid item xs={12} md={10}>
+                        <Paper variant="outlined" sx={{ p: 2, bgcolor: '#fafafa' }}>
+                            <FormControl component="fieldset">
+                                <FormLabel component="legend">¿A quién enviar el reporte?</FormLabel>
+                                <RadioGroup row value={modoEnvio} onChange={(e) => setModoEnvio(e.target.value)}>
+                                    <FormControlLabel value="todos" control={<Radio />} label="Todos los Vecinos (Activos)" />
+                                    <FormControlLabel value="seleccion" control={<Radio />} label="Seleccionar Vecinos / Bloques" />
+                                </RadioGroup>
+                            </FormControl>
+
+                            {/* SELECTOR MÚLTIPLE (Solo visible si eliges 'seleccion') */}
+                            {modoEnvio === 'seleccion' && (
+                                <FormControl fullWidth sx={{ mt: 2 }}>
+                                    <InputLabel>Selecciona los Vecinos</InputLabel>
+                                    <Select
+                                        multiple
+                                        value={seleccionados}
+                                        onChange={handleChangeSeleccion}
+                                        input={<OutlinedInput label="Selecciona los Vecinos" />}
+                                        renderValue={(selected) => `${selected.length} vecinos seleccionados`}
+                                        MenuProps={{ PaperProps: { style: { maxHeight: 300 } } }} // Scroll si son muchos
+                                    >
+                                        {usuarios
+                                            .filter(u => u.email) // Solo mostrar gente con email
+                                            .map((u) => (
+                                            <MenuItem key={u.id} value={u.id}>
+                                                <Checkbox checked={seleccionados.indexOf(u.id) > -1} />
+                                                <ListItemText 
+                                                    primary={`${u.first_name} ${u.last_name} (${u.username})`} 
+                                                    secondary={u.email} 
+                                                />
+                                            </MenuItem>
+                                        ))}
+                                    </Select>
+                                    <Typography variant="caption" color="text.secondary" sx={{mt:1}}>
+                                        * Solo se muestran usuarios con email registrado.
+                                    </Typography>
+                                </FormControl>
+                            )}
+                        </Paper>
                     </Grid>
                 </Grid>
 
@@ -158,7 +215,7 @@ function Reportes() {
                         Descargar PDF (Vista Previa)
                     </Button>
                     <Button variant="contained" size="large" color="success" startIcon={loading ? <CircularProgress size={20} color="inherit"/> : <EmailIcon />} onClick={handleEnviarEmail} disabled={loading}>
-                        {loading ? "Enviando..." : "Enviar Correo Masivo"}
+                        {loading ? "Enviando..." : `Enviar Correo (${modoEnvio === 'todos' ? 'Todos' : seleccionados.length})`}
                     </Button>
                 </Box>
             </Paper>

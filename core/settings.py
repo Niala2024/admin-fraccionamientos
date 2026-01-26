@@ -105,18 +105,23 @@ STATICFILES_DIRS = ['/app/frontend/dist']
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# --- 7. CONFIGURACIÓN DE CORREO (BREVO API) ---
-# Esta configuración salta el bloqueo de puertos de Railway
-EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
+# settings.py
 
-ANYMAIL = {
-    # Brevo buscará esta variable en Railway
-    "SENDINBLUE_API_KEY": os.getenv('BREVO_API_KEY'),
-}
+# --- CONFIGURACIÓN SMTP2GO ---
+# Usamos el backend estándar de Django (no anymail)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'mail.smtp2go.com'
 
-# 👇 IMPORTANTE: Este correo debe estar verificado en tu panel de Brevo (Senders)
-DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
+# 👇 EL TRUCO: Usamos el puerto 2525 (a veces Railway deja pasar este)
+EMAIL_PORT = 2525 
+EMAIL_USE_TLS = True
 
+# Tu usuario y contraseña de SMTP2GO
+EMAIL_HOST_USER = 'adminfracc@infinitummail.com' # (No es tu email, es el usuario que creaste en el panel)
+EMAIL_HOST_PASSWORD = os.getenv('SMTP2GO_PASSWORD')
+
+# Remitente
+DEFAULT_FROM_EMAIL = "Administración <adminfracc@infinitummail.com>"
 # --- 8. CORS Y DRF ---
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True

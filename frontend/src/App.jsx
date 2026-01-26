@@ -13,6 +13,7 @@ import Comunidad from './pages/Comunidad';
 import Reportes from './pages/Reportes'; 
 import Ayuda from './pages/Ayuda';
 import Directorio from './pages/Directorio';
+import Quejas from './pages/Quejas';
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
         <Route path="/directorio" element={<Directorio />} />
 
         <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/quejas" element={<Quejas />} />
       </Routes>
     </SnackbarProvider>
   )

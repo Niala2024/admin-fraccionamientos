@@ -1,6 +1,6 @@
 """
 Django settings for core project.
-Configuración HÍBRIDA: Funciona en Local (SQLite) y Railway (PostgreSQL).
+Configuración: Brevo API (Puerto 443) + Hotmail Verificado.
 """
 from pathlib import Path
 import os
@@ -20,19 +20,18 @@ ALLOWED_HOSTS = ["*"]
 
 # --- 2. APLICACIONES INSTALADAS ---
 INSTALLED_APPS = [
-    # Apps de Django
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
+    
     # Apps de Terceros
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
-    'anymail',  # ✅ Librería de correo (Ahora con Resend)
+    'anymail',  # ✅ Librería para conectar con Brevo API
 
     # Tus Apps
     'usuarios.apps.UsuariosConfig',
@@ -106,21 +105,17 @@ STATICFILES_DIRS = ['/app/frontend/dist']
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# --- CONFIGURACIÓN DE CORREO (INFINITUM MAIL) ---
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.infinitummail.com'
-EMAIL_PORT = 465
-EMAIL_USE_SSL = True   # ✅ Infinitum usa SSL en el puerto 465
-EMAIL_USE_TLS = False  # ❌ No activamos TLS porque choca con SSL
+# --- 7. CONFIGURACIÓN DE CORREO (BREVO API) ---
+# Esta configuración salta el bloqueo de puertos de Railway
+EMAIL_BACKEND = "anymail.backends.brevo.EmailBackend"
 
-# Tu usuario exacto de Infinitum
-EMAIL_HOST_USER = 'adminfracc@infinitummail.com'
+ANYMAIL = {
+    # Brevo buscará esta variable en Railway
+    "SENDINBLUE_API_KEY": os.getenv('BREVO_API_KEY'),
+}
 
-# La contraseña la tomará de las variables de Railway
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
-
-# El remitente debe ser idéntico a tu usuario
-DEFAULT_FROM_EMAIL = 'Administración <adminfracc@infinitummail.com>'
+# 👇 IMPORTANTE: Este correo debe estar verificado en tu panel de Brevo (Senders)
+DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
 
 # --- 8. CORS Y DRF ---
 CORS_ALLOW_ALL_ORIGINS = True

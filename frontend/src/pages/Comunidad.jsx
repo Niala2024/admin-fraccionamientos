@@ -347,3 +347,4 @@ function Comunidad() {
 }
 
 export default Comunidad;
+// Actualización forzada para ver botones

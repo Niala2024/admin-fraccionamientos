@@ -35,9 +35,9 @@ function App() {
         <Route path="/reportes" element={<Reportes />} />
         <Route path="/ayuda" element={<Ayuda />} />
         <Route path="/directorio" element={<Directorio />} />
-
-        <Route path="*" element={<Navigate to="/" replace />} />
         <Route path="/quejas" element={<Quejas />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+       
       </Routes>
     </SnackbarProvider>
   )

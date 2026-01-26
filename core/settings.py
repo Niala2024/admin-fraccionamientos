@@ -1,6 +1,6 @@
 """
 Django settings for core project.
-Configuración Final: SMTP2GO (Usuario 'railwayapp') + Puerto 443.
+Configuración Final: SMTP2GO (Ok) + CORS Corregido (Para PDF).
 """
 from pathlib import Path
 import os
@@ -31,7 +31,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
-    # 'anymail' <-- Eliminado porque usaremos SMTP nativo
 
     # Tus Apps
     'usuarios.apps.UsuariosConfig',
@@ -43,7 +42,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',            # ✅ Vital: Debe ir primero
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -106,28 +105,46 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # --- 7. CONFIGURACIÓN SMTP2GO (ESTRATEGIA PUERTO 443) ---
-# Usamos el backend estándar de Django
+# (Esto NO se tocó, se deja tal cual porque ya funciona)
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'mail.smtp2go.com'
-
-# 👇 EL SECRETO: Puerto 443 con SSL para saltar el bloqueo de Railway
 EMAIL_PORT = 443
-EMAIL_USE_SSL = True   # ✅ Activamos SSL
-EMAIL_USE_TLS = False  # ❌ Apagamos TLS
-
-# 👇 CORRECCIÓN: Usamos el usuario que aparece en tu imagen
+EMAIL_USE_SSL = True
+EMAIL_USE_TLS = False
 EMAIL_HOST_USER = 'railwayapp'
-
-# La contraseña la tomará de tus Variables de Railway (Debe ser PwNstO8PAdkFsHes)
 EMAIL_HOST_PASSWORD = os.getenv('SMTP2GO_PASSWORD')
-
-# Tu remitente (Hotmail)
 DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
 
-# --- 8. CORS Y DRF ---
+# --- 8. CORS Y DRF (CORREGIDO Y ACTUALIZADO) ---
+# Importamos los headers por defecto para agregar los de PDF
+from corsheaders.defaults import default_headers
+
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
-CSRF_TRUSTED_ORIGINS = ["https://*.railway.app", "https://*.up.railway.app", "http://localhost:5173"]
+
+# Lista explícita de tus dominios (Frontend y Backend) para evitar bloqueos
+CORS_ALLOWED_ORIGINS = [
+    "https://admin-fraccionamientos-production.up.railway.app",
+    "https://web-production-619e0.up.railway.app",
+    "http://localhost:5173",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://admin-fraccionamientos-production.up.railway.app",
+    "https://web-production-619e0.up.railway.app",
+    "https://*.railway.app",
+    "https://*.up.railway.app",
+]
+
+# Headers permitidos (Agregamos 'content-disposition' para que baje el PDF)
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "content-disposition",
+    "accept-encoding",
+    "content-type",
+    "accept",
+    "origin",
+    "authorization",
+]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [

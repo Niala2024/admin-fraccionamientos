@@ -14,10 +14,11 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Footer from '../components/Footer';
 
-// ✅ SOLUCIÓN: Definimos la URL correcta aquí arriba UNA SOLA VEZ.
+// ✅ CORRECCIÓN: Definimos la URL correcta AQUÍ (Igual que en Directorio)
 const API_BASE = window.location.hostname === 'localhost'
     ? 'http://127.0.0.1:8000/api'
-    : 'https://admin-fraccionamientos-production.up.railway.app/api'; // <--- ¡Esta es la buena!
+    : 'https://admin-fraccionamientos-production.up.railway.app/api'; 
+    // 👆 Asegúrate de que esta URL sea la de tu Railway VIVO
 
 function Reportes() {
   const navigate = useNavigate();
@@ -46,7 +47,7 @@ function Reportes() {
       const config = { headers: { 'Authorization': `Token ${token}` }};
       
       try {
-        // ✅ Usamos la variable API_BASE corregida
+        // ✅ AQUI estaba el error. Ahora usamos API_BASE
         const [resPagos, resEgresos, resCasas, resUsuarios] = await Promise.all([
             axios.get(`${API_BASE}/pagos/?estado=APROBADO`, config),
             axios.get(`${API_BASE}/egresos/`, config),
@@ -78,7 +79,7 @@ function Reportes() {
       const token = localStorage.getItem('token');
       
       try {
-          // ✅ Usamos la variable API_BASE corregida
+          // ✅ AQUI estaba el segundo error. Usamos API_BASE
           const response = await axios.get(`${API_BASE}/generar-reporte/?inicio=${fechaInicio}&fin=${fechaFin}`, {
               headers: { 'Authorization': `Token ${token}` },
               responseType: 'blob' 
@@ -100,7 +101,7 @@ function Reportes() {
       const token = localStorage.getItem('token');
 
       try {
-          // ✅ Usamos la variable API_BASE corregida
+          // ✅ AQUI estaba el tercer error. Usamos API_BASE
           const res = await axios.post(`${API_BASE}/generar-reporte/`, {
               inicio: fechaInicio,
               fin: fechaFin,

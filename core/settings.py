@@ -122,11 +122,8 @@ DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
 # --- 8. CORS Y DRF (MODO PERMISIVO PARA TOKENS) ---
 from corsheaders.defaults import default_headers
 
-# ✅ AL PERMITIR TODO, SE ACABAN LOS ERRORES DE BLOQUEO DE LISTAS
-CORS_ALLOW_ALL_ORIGINS = True  
-
-# ❌ APAGAMOS ESTO PORQUE USAS TOKENS, NO COOKIES
-CORS_ALLOW_CREDENTIALS = False 
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = False
 
 # Mantenemos los headers necesarios
 CORS_ALLOW_HEADERS = list(default_headers) + [

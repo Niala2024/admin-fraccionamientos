@@ -1,16 +1,17 @@
-# nixpacks.toml CORREGIDO
+# nixpacks.toml - ESTRATEGIA MANUAL
 
-# Mantenemos los proveedores (esto instalará Node y Python automáticamente)
-providers = ["python", "node"]
+# ✅ CAMBIO CLAVE: Quitamos "node" de aquí para que no choque con tu lista manual
+providers = ["python"]
 
 [phases.setup]
-# ❌ QUITAMOS "nodejs" de aquí para evitar el choque
+# Ahora sí, dejamos "nodejs" aquí porque es la ÚNICA fuente de instalación
 nixPkgs = [
-    "python3", 
-    "cairo", 
-    "pango", 
-    "gdk-pixbuf", 
-    "libffi", 
+    "python3",
+    "nodejs",
+    "cairo",
+    "pango",
+    "gdk-pixbuf",
+    "libffi",
     "gcc"
 ]
 

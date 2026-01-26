@@ -18,7 +18,7 @@ import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import VideocamIcon from '@mui/icons-material/Videocam'; 
 import ShareIcon from '@mui/icons-material/Share'; // ✅ ICONO COMPARTIR
 
-// ✅ IMPORTACIONES DE REDES SOCIALES
+// ✅ IMPORTACIONES DE REDES SOCIALES (Si faltan estas, falla)
 import {
   FacebookShareButton, FacebookIcon,
   WhatsappShareButton, WhatsappIcon,
@@ -30,7 +30,6 @@ import { Chart } from "react-google-charts";
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axiosConfig'; 
 
-// Asegúrate de tener esta imagen en src/assets/portada.png
 import portadaFija from '../assets/portada.png'; 
 
 function Comunidad() {
@@ -347,4 +346,3 @@ function Comunidad() {
 }
 
 export default Comunidad;
-// Actualización forzada para ver botones

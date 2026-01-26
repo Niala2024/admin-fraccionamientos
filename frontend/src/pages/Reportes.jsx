@@ -60,6 +60,7 @@ function Reportes() {
         const datosPagos = resPagos.data.results || resPagos.data;
         const datosEgresos = resEgresos.data.results || resEgresos.data;
         const datosCasas = resCasas.data.results || resCasas.data;
+        console.log("DATOS DE CASAS RECIBIDOS:", datosCasas);
         const datosUsuarios = resUsuarios.data.results || resUsuarios.data;
 
         setPagos(Array.isArray(datosPagos) ? datosPagos : []);

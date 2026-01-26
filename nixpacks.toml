@@ -1,22 +1,30 @@
-# nixpacks.toml
+# nixpacks.toml CORREGIDO
 
-# 1. Obligamos a instalar Python y Node (React)
+# 1. Proveedores principales
 providers = ["python", "node"]
 
-# 2. Definimos las versiones (opcional pero recomendado)
+# 2. INSTALACIÓN DE LIBRERÍAS DE LINUX (¡ESTO FALTABA!)
 [phases.setup]
-nixPkgs = ["python3", "nodejs"]
-
-# 3. La Construcción Paso a Paso (La Magia)
-[phases.build]
-cmds = [
-    "cd frontend && npm install && npm run build",  # Cocina el Frontend
-    "pip install -r requirements.txt",              # Prepara Django
-    "python manage.py collectstatic --noinput",     # Junta los archivos
-    "python manage.py migrate",                     # Actualiza la Base de Datos
-    "python manage.py createsuperuser --noinput || echo 'El usuario ya existe'" # Crea admin si no existe
+nixPkgs = [
+    "python3",
+    "nodejs",
+    "cairo",
+    "pango",
+    "gdk-pixbuf",
+    "libffi",
+    "gcc"
 ]
 
-# 4. El arranque
+# 3. Construcción del Proyecto
+[phases.build]
+cmds = [
+    "cd frontend && npm install && npm run build",
+    "pip install -r requirements.txt",
+    "python manage.py collectstatic --noinput",
+    "python manage.py migrate",
+    "python manage.py createsuperuser --noinput || echo 'El usuario ya existe'"
+]
+
+# 4. Arranque
 [start]
 cmd = "gunicorn core.wsgi:application --bind 0.0.0.0:$PORT"

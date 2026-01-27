@@ -3,8 +3,7 @@ import {
   Box, AppBar, Toolbar, Typography, Grid, Paper, Button, 
   Tabs, Tab, TextField, IconButton, List, ListItem, 
   ListItemText, ListItemAvatar, Avatar, Divider, Badge, Chip,
-  Dialog, DialogTitle, DialogContent, DialogActions, Select, MenuItem,
-  FormControl, InputLabel, Card, CardContent
+  Card, CardContent, InputAdornment, Tooltip
 } from '@mui/material';
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { useSnackbar } from 'notistack';
@@ -20,73 +19,107 @@ import SendIcon from '@mui/icons-material/Send';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import LogoutIcon from '@mui/icons-material/Logout';
 import WarningIcon from '@mui/icons-material/Warning';
-import PersonIcon from '@mui/icons-material/Person';
 import SearchIcon from '@mui/icons-material/Search';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CircleIcon from '@mui/icons-material/Circle';
 
 import api from '../api/axiosConfig';
 
 function Caseta() {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
+  const chatBottomRef = useRef(null);
   
-  // --- ESTADOS GLOBALES ---
+  // --- ESTADOS ---
   const [reloj, setReloj] = useState(new Date());
   const [tabIndex, setTabIndex] = useState(0); // 0: Escaner, 1: Manual, 2: Bitácora
-  const [tabLateral, setTabLateral] = useState(0); // 0: Autos Adentro, 1: Chat Vecinos
+  const [tabLateral, setTabLateral] = useState(1); // 0: Autos, 1: Chat (Default para ver el cambio)
 
-  // --- DATOS ---
   const [visitasActivas, setVisitasActivas] = useState([]);
   const [vecinos, setVecinos] = useState([]);
-  const [chatActivo, setChatActivo] = useState(null); // Vecino seleccionado para chat
+  const [vecinosFiltrados, setVecinosFiltrados] = useState([]);
+  const [busqueda, setBusqueda] = useState('');
+  
+  const [chatActivo, setChatActivo] = useState(null);
   const [mensajes, setMensajes] = useState([]);
   const [nuevoMensaje, setNuevoMensaje] = useState('');
-
-  // --- FORMULARIOS ---
+  
   const [formManual, setFormManual] = useState({ nombre: '', destino: '', tipo: 'Visita', placas: '' });
   const [incidente, setIncidente] = useState('');
-  
-  // --- QR ---
   const [qrResult, setQrResult] = useState(null);
-  
-  // --- RELOJ EN VIVO ---
+
+  // --- RELOJ ---
   useEffect(() => {
     const timer = setInterval(() => setReloj(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // --- CARGA INICIAL ---
-  useEffect(() => {
-    cargarDatos();
-    const interval = setInterval(cargarDatos, 15000); // Refresco automático cada 15s
-    return () => clearInterval(interval);
-  }, []);
-
+  // --- CARGA DE DATOS ---
   const cargarDatos = async () => {
     try {
       const [resVisitas, resUsuarios] = await Promise.all([
         api.get('/api/visitas/?estado=ACTIVA'),
-        api.get('/api/usuarios/')
+        api.get('/api/usuarios/') // Trae a todos para el directorio
       ]);
       setVisitasActivas(resVisitas.data.results || resVisitas.data);
       
-      // Filtramos solo residentes para el chat
-      const listaVecinos = (resUsuarios.data.results || resUsuarios.data).filter(u => !u.is_staff);
+      // Filtrar usuarios: Excluir admins y staff, dejar solo residentes
+      const listaVecinos = (resUsuarios.data.results || resUsuarios.data).filter(u => !u.is_staff && !u.is_superuser);
       setVecinos(listaVecinos);
+      // Si no hay búsqueda activa, actualizar filtrados
+      if (!busqueda) setVecinosFiltrados(listaVecinos);
+
     } catch (error) {
       console.error("Error cargando datos caseta", error);
     }
   };
 
-  // --- LÓGICA DEL CHAT ---
+  useEffect(() => {
+    cargarDatos();
+    const interval = setInterval(() => {
+        cargarDatos();
+        if (chatActivo) cargarChat(chatActivo.id); // Refrescar chat si está abierto
+    }, 5000); // Refresco rápido para chat (5s)
+    return () => clearInterval(interval);
+  }, [chatActivo]); // Dependencia chatActivo para el intervalo
+
+  // Filtrado de búsqueda
+  useEffect(() => {
+      if(!busqueda) {
+          setVecinosFiltrados(vecinos);
+      } else {
+          const lower = busqueda.toLowerCase();
+          setVecinosFiltrados(vecinos.filter(v => 
+              (v.first_name + ' ' + v.last_name).toLowerCase().includes(lower) ||
+              (v.username).toLowerCase().includes(lower) ||
+              (v.email).toLowerCase().includes(lower)
+          ));
+      }
+  }, [busqueda, vecinos]);
+
+  // Scroll automático al último mensaje
+  useEffect(() => {
+      if (chatBottomRef.current) {
+          chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+  }, [mensajes]);
+
+
+  // --- CHAT LOGIC ---
   const cargarChat = async (userId) => {
     try {
-      // Nota: Esto asume que tienes un endpoint que filtra mensajes por usuario
-      // Si no, habría que filtrar en el frontend.
+      // ?usuario=ID filtra la conversación con ese vecino específico
       const res = await api.get(`/api/chat/?usuario=${userId}`);
       setMensajes(res.data.results || res.data);
     } catch (error) {
-      console.error("Error cargando chat");
+      console.error("Error cargando chat", error);
     }
+  };
+
+  const seleccionarVecino = (vecino) => {
+    setChatActivo(vecino);
+    cargarChat(vecino.id);
+    // En móviles o pantallas chicas, esto podría ocultar la lista, pero aquí es split view o full panel
   };
 
   const enviarMensaje = async () => {
@@ -94,312 +127,266 @@ function Caseta() {
     try {
       await api.post('/api/chat/', {
         destinatario: chatActivo.id,
-        mensaje: nuevoMensaje,
-        es_guardia: true
+        mensaje: nuevoMensaje
       });
       setNuevoMensaje('');
-      cargarChat(chatActivo.id); // Recargar
-      enqueueSnackbar('Mensaje enviado', { variant: 'success' });
+      cargarChat(chatActivo.id);
     } catch (error) {
-      enqueueSnackbar('Error al enviar', { variant: 'error' });
+      enqueueSnackbar('Error enviando mensaje', { variant: 'error' });
     }
   };
 
-  const seleccionarVecino = (vecino) => {
-    setChatActivo(vecino);
-    cargarChat(vecino.id);
-  };
-
-  // --- LÓGICA DE ACCESOS ---
+  // --- ACCESOS LOGIC ---
   const handleRegistroManual = async () => {
-    try {
-      await api.post('/api/visitas/', { ...formManual, metodo: 'MANUAL' });
-      enqueueSnackbar('Ingreso registrado correctamente', { variant: 'success' });
-      setFormManual({ nombre: '', destino: '', tipo: 'Visita', placas: '' });
-      cargarDatos();
-    } catch (error) {
-      enqueueSnackbar('Error al registrar', { variant: 'error' });
-    }
+      if(!formManual.nombre || !formManual.destino) return enqueueSnackbar('Faltan datos', {variant: 'warning'});
+      try {
+          await api.post('/api/visitas/', { ...formManual, metodo: 'MANUAL' });
+          enqueueSnackbar('Ingreso registrado', { variant: 'success' });
+          setFormManual({ nombre: '', destino: '', tipo: 'Visita', placas: '' });
+          cargarDatos();
+      } catch (e) { enqueueSnackbar('Error al registrar', { variant: 'error' }); }
   };
 
   const handleSalida = async (id) => {
-    if (!confirm("¿Confirmar salida del vehículo?")) return;
-    try {
-      await api.patch(`/api/visitas/${id}/`, { estado: 'FINALIZADA', fecha_salida: new Date() });
-      enqueueSnackbar('Salida registrada', { variant: 'info' });
-      cargarDatos();
-    } catch (error) {
-      enqueueSnackbar('Error al registrar salida', { variant: 'error' });
-    }
+      if (!confirm("¿Registrar salida?")) return;
+      try {
+          await api.patch(`/api/visitas/${id}/`, { estado: 'FINALIZADA', fecha_salida: new Date() });
+          enqueueSnackbar('Salida registrada', { variant: 'info' });
+          cargarDatos();
+      } catch (e) { enqueueSnackbar('Error', { variant: 'error' }); }
   };
 
   const handleIncidente = async () => {
-    if(!incidente) return;
-    try {
-        await api.post('/api/reportes-diarios/', { mensaje: incidente, tipo: 'INCIDENTE' });
-        setIncidente('');
-        enqueueSnackbar('Incidente reportado en bitácora', { variant: 'warning' });
-    } catch (e) {
-        enqueueSnackbar('Error guardando incidente', { variant: 'error' });
-    }
+      if(!incidente) return;
+      await api.post('/api/reportes-diarios/', { mensaje: incidente, tipo: 'INCIDENTE' });
+      setIncidente('');
+      enqueueSnackbar('Incidente registrado', { variant: 'warning' });
   };
 
-  // --- LÓGICA QR (Renderizado condicional) ---
+  // --- QR ---
   useEffect(() => {
-    let scanner = null;
-    if (tabIndex === 0) {
-      // Pequeño delay para asegurar que el div exista
-      setTimeout(() => {
-        if (document.getElementById("reader")) {
-            scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 }, false);
-            scanner.render(onScanSuccess);
-        }
-      }, 500);
-    }
-    return () => {
-        if(scanner) scanner.clear().catch(e => console.error(e));
-    };
+      if (tabIndex === 0 && document.getElementById("reader")) {
+          const scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 }, false);
+          scanner.render((decoded) => {
+              setQrResult({ valido: true, mensaje: "Lectura Exitosa: " + decoded });
+              enqueueSnackbar('QR Leído', {variant:'success'});
+          });
+          return () => scanner.clear().catch(e=>console.error(e));
+      }
   }, [tabIndex]);
 
-  const onScanSuccess = async (decodedText) => {
-      // Evitar lecturas múltiples muy rápidas
-      try {
-          // Aquí iría la llamada real a tu backend para validar el QR
-          // const res = await api.post('/api/visitas/validar_qr/', { token: decodedText });
-          setQrResult({ valido: true, mensaje: "Acceso Autorizado: Juan Pérez (Lote 24)" });
-          enqueueSnackbar('QR Validado: Acceso Concedido', { variant: 'success' });
-      } catch (error) {
-          setQrResult({ valido: false, mensaje: "QR Inválido o Expirado" });
-          enqueueSnackbar('QR Inválido', { variant: 'error' });
-      }
-  };
-
   return (
-    <Box sx={{ flexGrow: 1, height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#101418' }}>
+    <Box sx={{ flexGrow: 1, height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#0b141a' }}> {/* Fondo Dark WhatsApp */}
       
-      {/* 1. BARRA SUPERIOR (HEADER) */}
-      <AppBar position="static" sx={{ bgcolor: '#1e293b', borderBottom: '1px solid #333' }}>
+      {/* HEADER */}
+      <AppBar position="static" sx={{ bgcolor: '#202c33', borderBottom: '1px solid #333' }}>
         <Toolbar>
-          <SecurityIcon sx={{ mr: 2, color: '#4fc3f7', fontSize: 30 }} />
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" fontWeight="bold">CONTROL DE ACCESOS</Typography>
-            <Typography variant="caption" color="gray">Sistema de Vigilancia Activa</Typography>
-          </Box>
+          <SecurityIcon sx={{ mr: 2, color: '#00a884' }} /> {/* Verde WhatsApp */}
+          <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 'bold' }}>CASETA VIGILANCIA</Typography>
           
-          {/* RELOJ DIGITAL GRANDE */}
-          <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: '#000', px: 2, py: 0.5, borderRadius: 2, border: '1px solid #333', mr: 3 }}>
-            <AccessTimeIcon sx={{ color: '#00e676', mr: 1 }} />
-            <Typography variant="h5" sx={{ fontFamily: 'monospace', color: '#00e676', fontWeight: 'bold' }}>
-              {reloj.toLocaleTimeString()}
-            </Typography>
-          </Box>
-
-          <Button 
-            variant="contained" 
-            color="error" 
-            startIcon={<WarningIcon />} 
-            sx={{ mr: 2, fontWeight: 'bold' }}
-            onClick={() => alert("¡ALERTA DE PÁNICO ENVIADA A ADMINISTRACIÓN Y POLICÍA!")}
-          >
-            PÁNICO
+          <Chip 
+             icon={<AccessTimeIcon sx={{color:'white'}}/>} 
+             label={reloj.toLocaleTimeString()} 
+             sx={{ bgcolor: '#111b21', color: '#00e676', fontWeight: 'bold', border: '1px solid #333', mr: 2 }} 
+          />
+          
+          <Button variant="contained" color="error" startIcon={<WarningIcon />} onClick={() => alert("ALERTA GENERAL ENVIADA")}>
+            SOS
           </Button>
-
-          <IconButton color="inherit" onClick={() => { localStorage.clear(); navigate('/'); }}>
+          <IconButton color="inherit" onClick={() => { localStorage.clear(); navigate('/'); }} sx={{ ml: 1 }}>
             <LogoutIcon />
           </IconButton>
         </Toolbar>
       </AppBar>
 
-      {/* 2. ÁREA DE TRABAJO (GRID) */}
       <Grid container sx={{ flexGrow: 1, overflow: 'hidden' }}>
         
-        {/* COLUMNA IZQUIERDA: HERRAMIENTAS DE ACCESO */}
-        <Grid item xs={12} md={8} sx={{ p: 2, display: 'flex', flexDirection: 'column', borderRight: '1px solid #333' }}>
-          <Paper sx={{ flexGrow: 1, bgcolor: '#1e293b', color: 'white', borderRadius: 2, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <Tabs 
-                value={tabIndex} 
-                onChange={(e, v) => setTabIndex(v)} 
-                centered 
-                indicatorColor="secondary" 
-                textColor="inherit"
-                sx={{ borderBottom: '1px solid #444' }}
-            >
-              <Tab icon={<QrCodeScannerIcon />} label="Escáner QR" />
-              <Tab icon={<DirectionsCarIcon />} label="Entrada Manual" />
-              <Tab icon={<BookIcon />} label="Bitácora Incidencias" />
-            </Tabs>
+        {/* --- IZQUIERDA: OPERACIONES --- */}
+        <Grid item xs={12} md={7} lg={8} sx={{ p: 2, display: 'flex', flexDirection: 'column', borderRight: '1px solid #333' }}>
+           <Paper sx={{ flexGrow: 1, bgcolor: '#111b21', color: '#e9edef', borderRadius: 3, overflow: 'hidden', display:'flex', flexDirection:'column' }}>
+             <Tabs value={tabIndex} onChange={(e,v)=>setTabIndex(v)} centered indicatorColor="primary" textColor="inherit" sx={{borderBottom:'1px solid #333'}}>
+                <Tab icon={<QrCodeScannerIcon/>} label="QR" />
+                <Tab icon={<DirectionsCarIcon/>} label="Manual" />
+                <Tab icon={<BookIcon/>} label="Bitácora" />
+             </Tabs>
+             
+             <Box sx={{ p: 3, flexGrow: 1, overflowY: 'auto' }}>
+                {tabIndex === 0 && (
+                    <Box textAlign="center">
+                        <Typography variant="h6" gutterBottom>Escanear Pase</Typography>
+                        <Box id="reader" sx={{ width: '100%', maxWidth: 400, mx: 'auto', bgcolor: 'black', borderRadius: 2, overflow:'hidden' }} />
+                        {qrResult && <Paper sx={{mt:2, p:2, bgcolor:'#005c4b', color:'white'}}>{qrResult.mensaje}</Paper>}
+                    </Box>
+                )}
 
-            <Box sx={{ p: 3, flexGrow: 1, overflowY: 'auto' }}>
-              {/* PESTAÑA 0: QR */}
-              {tabIndex === 0 && (
-                <Box sx={{ textAlign: 'center', mt: 2 }}>
-                  <Typography variant="h6" gutterBottom>Escanee el código del visitante</Typography>
-                  <Box sx={{ width: '100%', maxWidth: 400, margin: '0 auto', bgcolor: 'black', p: 1, borderRadius: 2 }}>
-                    <div id="reader" style={{ width: '100%' }}></div>
-                  </Box>
-                  {qrResult && (
-                      <Paper sx={{ mt: 3, p: 2, bgcolor: qrResult.valido ? '#1b5e20' : '#b71c1c' }}>
-                          <Typography variant="h5" fontWeight="bold">{qrResult.mensaje}</Typography>
-                      </Paper>
-                  )}
-                </Box>
-              )}
+                {tabIndex === 1 && (
+                    <Box maxWidth="sm" mx="auto">
+                        <Typography color="#00a884" variant="h6" mb={2}>Registro Manual</Typography>
+                        <Grid container spacing={2}>
+                            <Grid item xs={12}><TextField fullWidth label="Conductor" variant="filled" sx={{bgcolor:'#202c33', borderRadius:1}} InputLabelProps={{style:{color:'#aebac1'}}} inputProps={{style:{color:'white'}}} value={formManual.nombre} onChange={e=>setFormManual({...formManual, nombre:e.target.value})}/></Grid>
+                            <Grid item xs={6}><TextField fullWidth label="Placas" variant="filled" sx={{bgcolor:'#202c33', borderRadius:1}} InputLabelProps={{style:{color:'#aebac1'}}} inputProps={{style:{color:'white'}}} value={formManual.placas} onChange={e=>setFormManual({...formManual, placas:e.target.value})}/></Grid>
+                            <Grid item xs={6}><TextField fullWidth label="Destino" variant="filled" sx={{bgcolor:'#202c33', borderRadius:1}} InputLabelProps={{style:{color:'#aebac1'}}} inputProps={{style:{color:'white'}}} value={formManual.destino} onChange={e=>setFormManual({...formManual, destino:e.target.value})}/></Grid>
+                            <Grid item xs={12}><Button fullWidth variant="contained" size="large" sx={{bgcolor:'#00a884', color:'white', py:1.5}} onClick={handleRegistroManual}>Dar Acceso</Button></Grid>
+                        </Grid>
+                    </Box>
+                )}
 
-              {/* PESTAÑA 1: MANUAL */}
-              {tabIndex === 1 && (
-                <Box maxWidth="sm" sx={{ mx: 'auto' }}>
-                  <Typography variant="h6" gutterBottom color="#4fc3f7">Registro de Proveedor / Taxi / Visita sin App</Typography>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12}>
-                        <TextField fullWidth label="Nombre del Conductor" variant="filled" sx={{ bgcolor: '#334155', borderRadius: 1 }} InputLabelProps={{style: {color: '#94a3b8'}}} inputProps={{style: {color: 'white'}}} value={formManual.nombre} onChange={e => setFormManual({...formManual, nombre: e.target.value})} />
-                    </Grid>
-                    <Grid item xs={6}>
-                        <TextField fullWidth label="Placas / Vehículo" variant="filled" sx={{ bgcolor: '#334155', borderRadius: 1 }} InputLabelProps={{style: {color: '#94a3b8'}}} inputProps={{style: {color: 'white'}}} value={formManual.placas} onChange={e => setFormManual({...formManual, placas: e.target.value})} />
-                    </Grid>
-                    <Grid item xs={6}>
-                         <FormControl fullWidth variant="filled" sx={{ bgcolor: '#334155', borderRadius: 1 }}>
-                            <InputLabel sx={{ color: '#94a3b8' }}>Tipo</InputLabel>
-                            <Select value={formManual.tipo} sx={{ color: 'white' }} onChange={e => setFormManual({...formManual, tipo: e.target.value})}>
-                                <MenuItem value="Visita">Visita General</MenuItem>
-                                <MenuItem value="Proveedor">Proveedor/Servicio</MenuItem>
-                                <MenuItem value="Taxi">Taxi/Uber/Didi</MenuItem>
-                                <MenuItem value="Emergencia">Emergencia</MenuItem>
-                            </Select>
-                        </FormControl>
-                    </Grid>
-                    <Grid item xs={12}>
-                        <TextField fullWidth label="Casa / Destino (Ej: Calle Roble #12)" variant="filled" sx={{ bgcolor: '#334155', borderRadius: 1 }} InputLabelProps={{style: {color: '#94a3b8'}}} inputProps={{style: {color: 'white'}}} value={formManual.destino} onChange={e => setFormManual({...formManual, destino: e.target.value})} />
-                    </Grid>
-                    <Grid item xs={12}>
-                        <Button fullWidth variant="contained" size="large" sx={{ mt: 2, py: 1.5, fontSize: '1.1rem', bgcolor: '#0288d1' }} onClick={handleRegistroManual}>
-                            AUTORIZAR ENTRADA
-                        </Button>
-                    </Grid>
-                  </Grid>
-                </Box>
-              )}
-
-              {/* PESTAÑA 2: INCIDENCIAS */}
-              {tabIndex === 2 && (
-                <Box>
-                    <Typography variant="h6" color="error" gutterBottom>Reportar Novedad o Incidente</Typography>
-                    <TextField 
-                        fullWidth multiline rows={6} 
-                        placeholder="Describa lo sucedido (Ej: Ruido excesivo en casa 4, Portón fallando, etc.)"
-                        variant="filled" 
-                        sx={{ bgcolor: '#334155', borderRadius: 1 }} 
-                        InputLabelProps={{style: {color: '#94a3b8'}}} 
-                        inputProps={{style: {color: 'white'}}}
-                        value={incidente}
-                        onChange={(e) => setIncidente(e.target.value)}
-                    />
-                    <Button variant="contained" color="warning" fullWidth sx={{ mt: 2 }} onClick={handleIncidente}>
-                        REGISTRAR EN BITÁCORA
-                    </Button>
-                </Box>
-              )}
-            </Box>
-          </Paper>
+                {tabIndex === 2 && (
+                    <Box>
+                        <Typography color="error" variant="h6">Reportar Incidente</Typography>
+                        <TextField fullWidth multiline rows={4} variant="filled" placeholder="Descripción..." sx={{bgcolor:'#202c33', borderRadius:1, mt:2}} inputProps={{style:{color:'white'}}} value={incidente} onChange={e=>setIncidente(e.target.value)}/>
+                        <Button fullWidth variant="contained" color="warning" sx={{mt:2}} onClick={handleIncidente}>Registrar</Button>
+                    </Box>
+                )}
+             </Box>
+           </Paper>
         </Grid>
 
-        {/* COLUMNA DERECHA: INFORMACIÓN Y CHAT */}
-        <Grid item xs={12} md={4} sx={{ bgcolor: '#0f172a', display: 'flex', flexDirection: 'column', height: '100%' }}>
+        {/* --- DERECHA: CHAT Y VISITAS (Estilo WhatsApp) --- */}
+        <Grid item xs={12} md={5} lg={4} sx={{ bgcolor: '#111b21', display: 'flex', flexDirection: 'column', height: '100%' }}>
             
             {/* TABS LATERALES */}
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-                <Tabs value={tabLateral} onChange={(e,v) => setTabLateral(v)} textColor="secondary" indicatorColor="secondary" variant="fullWidth">
+            <Box sx={{ borderBottom: '1px solid #333', bgcolor: '#202c33' }}>
+                <Tabs value={tabLateral} onChange={(e,v)=>setTabLateral(v)} textColor="inherit" indicatorColor="primary" variant="fullWidth">
                     <Tab label={`Adentro (${visitasActivas.length})`} />
-                    <Tab label="Chat Vecinos" />
+                    <Tab label="Chat Vecinos" icon={<ChatIcon sx={{color: '#00a884'}}/>} iconPosition="start" />
                 </Tabs>
             </Box>
 
-            {/* CONTENIDO LATERAL 0: AUTOS ADENTRO */}
+            {/* TAB 0: AUTOS ADENTRO */}
             {tabLateral === 0 && (
                 <List sx={{ overflowY: 'auto', flexGrow: 1, p: 1 }}>
-                    {visitasActivas.length === 0 ? (
-                        <Typography color="gray" align="center" sx={{ mt: 4 }}>No hay visitas registradas adentro.</Typography>
-                    ) : (
-                        visitasActivas.map((v) => (
-                            <Card key={v.id} sx={{ mb: 1, bgcolor: '#1e293b', color: 'white' }}>
-                                <CardContent sx={{ pb: '10px !important' }}>
-                                    <Box display="flex" justifyContent="space-between" alignItems="center">
-                                        <Box>
-                                            <Typography variant="subtitle1" fontWeight="bold">{v.nombre_visitante}</Typography>
-                                            <Typography variant="caption" color="#94a3b8">Hacia: {v.casa_destino || v.detalles_destino}</Typography>
-                                        </Box>
-                                        <Button variant="outlined" color="error" size="small" onClick={() => handleSalida(v.id)}>
-                                            SALIDA
-                                        </Button>
-                                    </Box>
-                                    <Chip label={v.tipo} size="small" sx={{ mt: 1, bgcolor: '#334155', color: 'white' }} />
-                                    <Typography variant="caption" sx={{ ml: 1, color: '#64748b' }}>
-                                        Entró: {new Date(v.fecha_entrada).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                                    </Typography>
-                                </CardContent>
-                            </Card>
-                        ))
-                    )}
+                    {visitasActivas.length === 0 ? <Typography align="center" sx={{mt:4, color:'#8696a0'}}>Sin visitas activas</Typography> : 
+                    visitasActivas.map(v => (
+                        <Card key={v.id} sx={{ mb: 1, bgcolor: '#202c33', color: '#e9edef' }}>
+                            <CardContent sx={{ pb: '10px !important', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                                <Box>
+                                    <Typography variant="subtitle2" fontWeight="bold">{v.nombre_visitante}</Typography>
+                                    <Typography variant="caption" color="#8696a0">{v.placas_vehiculo || 'Sin placas'}</Typography>
+                                </Box>
+                                <Button size="small" variant="outlined" color="error" onClick={()=>handleSalida(v.id)}>Salida</Button>
+                            </CardContent>
+                        </Card>
+                    ))}
                 </List>
             )}
 
-            {/* CONTENIDO LATERAL 1: CHAT WHATSAPP */}
+            {/* TAB 1: CHAT WHATSAPP STYLE */}
             {tabLateral === 1 && (
                 <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    
+                    {/* VISTA 1: LISTA DE CONTACTOS (Si no hay chat activo) */}
                     {!chatActivo ? (
-                        // LISTA DE VECINOS
-                        <Box sx={{ flexGrow: 1, overflowY: 'auto' }}>
-                            <Box sx={{ p: 1 }}><TextField fullWidth size="small" placeholder="Buscar vecino..." InputProps={{startAdornment: <SearchIcon color="disabled"/>}} sx={{ bgcolor: '#334155', borderRadius: 1 }} inputProps={{style:{color:'white'}}} /></Box>
-                            <List>
-                                {vecinos.map(vecino => (
-                                    <ListItem button key={vecino.id} onClick={() => seleccionarVecino(vecino)} sx={{ '&:hover': { bgcolor: '#334155' } }}>
-                                        <ListItemAvatar><Avatar sx={{ bgcolor: '#1976d2' }}>{vecino.nombre ? vecino.nombre[0] : 'V'}</Avatar></ListItemAvatar>
-                                        <ListItemText 
-                                            primary={<Typography color="white">{vecino.nombre || vecino.username}</Typography>} 
-                                            secondary={<Typography color="gray" variant="caption">Casa {vecino.casa || 'S/N'}</Typography>} 
-                                        />
-                                        <ChatIcon color="disabled" fontSize="small" />
-                                    </ListItem>
-                                ))}
+                        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                            {/* Buscador */}
+                            <Box sx={{ p: 2, borderBottom: '1px solid #333' }}>
+                                <TextField 
+                                    fullWidth 
+                                    size="small" 
+                                    placeholder="Buscar vecino o casa..." 
+                                    value={busqueda}
+                                    onChange={(e) => setBusqueda(e.target.value)}
+                                    InputProps={{
+                                        startAdornment: <InputAdornment position="start"><SearchIcon sx={{color:'#8696a0'}}/></InputAdornment>,
+                                        style: { color: 'white', backgroundColor: '#202c33', borderRadius: 8 }
+                                    }}
+                                />
+                            </Box>
+                            
+                            {/* Lista */}
+                            <List sx={{ overflowY: 'auto', flexGrow: 1 }}>
+                                {vecinosFiltrados.length === 0 ? (
+                                    <Typography align="center" sx={{ mt: 4, color: '#8696a0' }}>
+                                        {vecinos.length === 0 ? "Cargando vecinos..." : "No encontrado"}
+                                    </Typography>
+                                ) : (
+                                    vecinosFiltrados.map(v => (
+                                        <ListItem button key={v.id} onClick={() => seleccionarVecino(v)} sx={{ '&:hover': { bgcolor: '#202c33' }, borderBottom:'1px solid #222' }}>
+                                            <ListItemAvatar>
+                                                <Avatar sx={{ bgcolor: '#00a884' }}>{v.username.charAt(0).toUpperCase()}</Avatar>
+                                            </ListItemAvatar>
+                                            <ListItemText 
+                                                primary={<Typography color="#e9edef" fontWeight="bold">{v.first_name} {v.last_name}</Typography>}
+                                                secondary={<Typography color="#8696a0" variant="body2">{v.username} • Casa {v.casa_id || '?'}</Typography>}
+                                            />
+                                        </ListItem>
+                                    ))
+                                )}
                             </List>
                         </Box>
                     ) : (
-                        // CONVERSACIÓN ACTIVA
-                        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-                            <Box sx={{ p: 1, bgcolor: '#0288d1', color: 'white', display: 'flex', alignItems: 'center' }}>
-                                <IconButton size="small" onClick={() => setChatActivo(null)} sx={{ color: 'white', mr: 1 }}>{'<'}</IconButton>
-                                <Typography variant="subtitle2" noWrap>{chatActivo.nombre || chatActivo.username}</Typography>
-                            </Box>
+                        // VISTA 2: CONVERSACIÓN ACTIVA
+                        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', bgcolor: '#0b141a' }}> {/* Fondo Chat */}
                             
-                            <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2, bgcolor: '#0f172a' }}>
-                                {mensajes.length === 0 && <Typography align="center" color="gray" variant="caption">Inicia la conversación...</Typography>}
-                                {mensajes.map((msg, i) => (
-                                    <Box key={i} sx={{ display: 'flex', justifyContent: msg.es_mio ? 'flex-end' : 'flex-start', mb: 1 }}>
-                                        <Paper sx={{ p: 1, bgcolor: msg.es_mio ? '#005c4b' : '#202c33', color: 'white', maxWidth: '80%' }}>
-                                            <Typography variant="body2">{msg.texto}</Typography>
-                                            <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', opacity: 0.7, fontSize: '0.6rem' }}>
+                            {/* Header Chat */}
+                            <Box sx={{ p: 1.5, bgcolor: '#202c33', display: 'flex', alignItems: 'center', borderBottom: '1px solid #333' }}>
+                                <IconButton onClick={() => setChatActivo(null)} sx={{ color: '#aebac1', mr: 1 }}>
+                                    <ArrowBackIcon />
+                                </IconButton>
+                                <Avatar sx={{ bgcolor: '#00a884', width: 35, height: 35, mr: 2 }}>{chatActivo.username.charAt(0)}</Avatar>
+                                <Box>
+                                    <Typography color="#e9edef" variant="subtitle2">{chatActivo.first_name || chatActivo.username}</Typography>
+                                    <Typography color="#8696a0" variant="caption">Residente</Typography>
+                                </Box>
+                            </Box>
+
+                            {/* Área de Mensajes */}
+                            <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                {mensajes.length === 0 && (
+                                    <Typography align="center" sx={{ color: '#8696a0', mt: 4, fontSize: '0.9rem', bgcolor:'#1f2c34', p:1, borderRadius:2, alignSelf:'center' }}>
+                                        🔒 Inicia la conversación con el vecino.
+                                    </Typography>
+                                )}
+                                
+                                {mensajes.map((msg, index) => (
+                                    <Box 
+                                        key={index} 
+                                        sx={{ 
+                                            alignSelf: msg.es_mio ? 'flex-end' : 'flex-start',
+                                            maxWidth: '80%',
+                                            mb: 0.5
+                                        }}
+                                    >
+                                        <Paper sx={{ 
+                                            p: 1, px: 1.5, 
+                                            bgcolor: msg.es_mio ? '#005c4b' : '#202c33', // Verde para mí (Guardia), Gris para vecino
+                                            color: '#e9edef',
+                                            borderRadius: 2,
+                                            borderTopRightRadius: msg.es_mio ? 0 : 2,
+                                            borderTopLeftRadius: msg.es_mio ? 2 : 0
+                                        }}>
+                                            <Typography variant="body2" sx={{whiteSpace: 'pre-wrap'}}>{msg.mensaje}</Typography>
+                                            <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', opacity: 0.6, fontSize: '0.65rem', mt: 0.5 }}>
                                                 {new Date(msg.fecha).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
                                             </Typography>
                                         </Paper>
                                     </Box>
                                 ))}
+                                <div ref={chatBottomRef} />
                             </Box>
-                            
-                            <Box sx={{ p: 1, bgcolor: '#1e293b', display: 'flex' }}>
+
+                            {/* Input Area */}
+                            <Box sx={{ p: 1.5, bgcolor: '#202c33', display: 'flex', alignItems: 'center' }}>
                                 <TextField 
-                                    fullWidth size="small" placeholder="Escribe un mensaje..." 
-                                    sx={{ bgcolor: '#334155', borderRadius: 1, mr: 1 }} 
-                                    inputProps={{style:{color:'white'}}}
+                                    fullWidth 
+                                    size="small" 
+                                    placeholder="Escribe un mensaje..." 
                                     value={nuevoMensaje}
                                     onChange={(e) => setNuevoMensaje(e.target.value)}
                                     onKeyPress={(e) => e.key === 'Enter' && enviarMensaje()}
+                                    InputProps={{
+                                        style: { color: 'white', backgroundColor: '#2a3942', borderRadius: 8 }
+                                    }}
+                                    sx={{ mr: 1 }}
                                 />
-                                <IconButton color="primary" onClick={enviarMensaje}><SendIcon /></IconButton>
+                                <IconButton sx={{ bgcolor: '#00a884', color: 'white', '&:hover': { bgcolor: '#008f6f' } }} onClick={enviarMensaje}>
+                                    <SendIcon fontSize="small" />
+                                </IconButton>
                             </Box>
                         </Box>
                     )}
                 </Box>
             )}
-
         </Grid>
       </Grid>
     </Box>

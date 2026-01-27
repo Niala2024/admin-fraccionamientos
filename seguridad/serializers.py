@@ -38,19 +38,17 @@ class ReporteDiarioSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('guardia', 'fecha')
 
-# ✅ SERIALIZADOR CHAT CORREGIDO (Con 'es_mio')
 class MensajeChatSerializer(serializers.ModelSerializer):
     remitente_nombre = serializers.SerializerMethodField()
     remitente_user = serializers.ReadOnlyField(source='remitente.username')
     casa_remitente = serializers.SerializerMethodField()
-    
-    # Campo vital para el frontend: ¿Fui yo quien envió esto?
     es_mio = serializers.SerializerMethodField()
 
     class Meta:
         model = MensajeChat
         fields = '__all__'
-        read_only_fields = ('remitente', 'fecha', 'es_guardia')
+        # Archivamos vía acción, no edición directa
+        read_only_fields = ('remitente', 'fecha', 'es_guardia', 'archivado')
 
     def get_es_mio(self, obj):
         request = self.context.get('request')
@@ -63,16 +61,12 @@ class MensajeChatSerializer(serializers.ModelSerializer):
 
     def get_casa_remitente(self, obj):
         try:
-            # Usamos get_model para evitar importación circular
             Casa = apps.get_model('inmuebles', 'Casa')
-            
             if obj.remitente.is_staff or obj.remitente.is_superuser:
                 return "C5 / Seguridad"
-            
             rol = getattr(obj.remitente, 'rol', '').lower()
             if 'guardia' in rol or 'admin' in rol:
                 return "C5 / Seguridad"
-
             casa = Casa.objects.filter(propietario=obj.remitente).first()
             if casa:
                 return f"Casa {casa.numero_exterior}"

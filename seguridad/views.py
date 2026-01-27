@@ -12,7 +12,7 @@ from .serializers import (
     BitacoraSerializer, ReporteDiarioSerializer, MensajeChatSerializer
 )
 
-# --- 1. CHAT INTERNO (Lógica Corregida) ---
+# --- 1. CHAT INTERNO (Con Archivar) ---
 class MensajeChatViewSet(viewsets.ModelViewSet):
     queryset = MensajeChat.objects.all().order_by('fecha')
     serializer_class = MensajeChatSerializer
@@ -22,23 +22,23 @@ class MensajeChatViewSet(viewsets.ModelViewSet):
         rol = getattr(user, 'rol', '').lower() if getattr(user, 'rol', '') else ''
         es_autoridad = user.is_staff or user.is_superuser or 'guardia' in rol or 'admin' in rol
 
-        # Filtro específico: ¿Quiero ver el chat con alguien en particular?
+        # Base: No mostramos mensajes archivados
+        queryset = MensajeChat.objects.filter(archivado=False).order_by('fecha')
+
         otro_usuario_id = self.request.query_params.get('usuario')
 
         if es_autoridad:
-            # CASO GUARDIA/ADMIN
             if otro_usuario_id:
-                # Si seleccionó un vecino, traemos todo lo relacionado a ese vecino
-                # (Mensajes que él envió O mensajes que se le enviaron a él)
-                return MensajeChat.objects.filter(
+                # Chat específico con un vecino
+                return queryset.filter(
                     Q(remitente_id=otro_usuario_id) | Q(destinatario_id=otro_usuario_id)
                 ).order_by('fecha')
             else:
-                # Vista general (últimos mensajes para monitoreo)
-                return MensajeChat.objects.all().order_by('-fecha')[:50]
+                # Monitoreo general (últimos 50 mensajes no archivados)
+                return queryset.order_by('-fecha')[:50]
         else:
-            # CASO VECINO (Solo ve sus propios mensajes)
-            return MensajeChat.objects.filter(
+            # Vecino: Solo ve sus mensajes
+            return queryset.filter(
                 Q(remitente=user) | Q(destinatario=user)
             ).order_by('fecha')
 
@@ -46,12 +46,15 @@ class MensajeChatViewSet(viewsets.ModelViewSet):
         user = self.request.user
         rol = getattr(user, 'rol', '').lower() if getattr(user, 'rol', '') else ''
         es_autoridad = user.is_staff or user.is_superuser or 'guardia' in rol or 'admin' in rol
-        
-        # Guardamos quién lo envía y si es autoridad
-        serializer.save(
-            remitente=user, 
-            es_guardia=es_autoridad
-        )
+        serializer.save(remitente=user, es_guardia=es_autoridad)
+
+    # ✅ ACCIÓN: Archivar mensaje (ocultar)
+    @action(detail=True, methods=['patch'])
+    def archivar(self, request, pk=None):
+        mensaje = self.get_object()
+        mensaje.archivado = True
+        mensaje.save()
+        return Response({'status': 'Mensaje archivado'})
 
 # --- 2. REPORTE DIARIO ---
 class ReporteDiarioViewSet(viewsets.ModelViewSet):
@@ -69,10 +72,11 @@ class ReporteDiarioViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(guardia=self.request.user)
 
-# --- 3. ACCESOS Y VISITAS ---
+# --- 3. ACCESOS Y VISITAS (Listas Activas) ---
 class AccesoTrabajadorViewSet(viewsets.ModelViewSet):
     queryset = AccesoTrabajador.objects.all()
     serializer_class = AccesoTrabajadorSerializer
+
     def get_queryset(self):
         queryset = super().get_queryset()
         inicio = self.request.query_params.get('inicio')
@@ -83,6 +87,7 @@ class AccesoTrabajadorViewSet(viewsets.ModelViewSet):
         
     @action(detail=False, methods=['get'])
     def activos(self, request):
+        # Trabajadores que entraron pero NO han salido
         activos = AccesoTrabajador.objects.filter(fecha_salida__isnull=True).order_by('-fecha_entrada')
         serializer = self.get_serializer(activos, many=True)
         return Response(serializer.data)
@@ -91,17 +96,22 @@ class AccesoTrabajadorViewSet(viewsets.ModelViewSet):
     def escanear_qr(self, request):
         codigo = request.data.get('codigo') 
         if not codigo: return Response({'error': 'Código QR requerido'}, status=400)
-        # Aquí iría tu lógica de validación de QR de trabajadores si la tuvieras separada
         return Response({'mensaje': 'Escaneo recibido (Simulado)'}, status=200)
 
 class VisitaViewSet(viewsets.ModelViewSet):
     queryset = Visita.objects.all().order_by('-id')
     serializer_class = VisitaSerializer
-    def perform_create(self, serializer): serializer.save(creado_por=self.request.user)
+
+    def perform_create(self, serializer): 
+        serializer.save(creado_por=self.request.user)
     
     @action(detail=False, methods=['get'])
     def activas(self, request):
-        activas = Visita.objects.filter(fecha_llegada_real__isnull=False, fecha_salida_real__isnull=True).order_by('-fecha_llegada_real')
+        # Visitas que ya llegaron (tienen fecha_llegada) pero no han salido (sin fecha_salida)
+        activas = Visita.objects.filter(
+            fecha_llegada_real__isnull=False, 
+            fecha_salida_real__isnull=True
+        ).order_by('-fecha_llegada_real')
         return Response(self.get_serializer(activas, many=True).data)
 
 class TrabajadorViewSet(viewsets.ModelViewSet):

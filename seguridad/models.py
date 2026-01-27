@@ -20,7 +20,14 @@ class AccesoTrabajador(models.Model):
     fecha_salida = models.DateTimeField(null=True, blank=True)
 
 class Visita(models.Model):
-    TIPOS = [('VISITA', 'Visita Familiar/Amigo'), ('PROVEEDOR', 'Proveedor/Servicio')]
+    TIPOS = [
+        ('VISITA', 'Visita Familiar/Amigo'), 
+        ('PROVEEDOR', 'Proveedor/Servicio'),
+        ('TAXI', 'Taxi/Uber/Didi'),
+        ('PAQUETERIA', 'Paquetería'),
+        ('EMERGENCIA', 'Emergencia'),
+        ('OTRO', 'Otro')
+    ]
     casa = models.ForeignKey(Casa, on_delete=models.CASCADE, related_name='visitas_programadas')
     nombre_visitante = models.CharField(max_length=100)
     tipo = models.CharField(max_length=20, choices=TIPOS, default='VISITA')
@@ -51,12 +58,16 @@ class ReporteDiario(models.Model):
     mensaje = models.TextField()
     fecha = models.DateTimeField(auto_now_add=True)
 
-# ✅ MODELO CHAT ACTUALIZADO
 class MensajeChat(models.Model):
     remitente = models.ForeignKey(User, on_delete=models.CASCADE, related_name='mensajes_enviados')
     destinatario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='mensajes_recibidos')
     mensaje = models.TextField()
     fecha = models.DateTimeField(auto_now_add=True)
     leido = models.BooleanField(default=False)
-    # Importante para saber si el mensaje viene de la caseta (style visual)
-    es_guardia = models.BooleanField(default=False)
+    es_guardia = models.BooleanField(default=False) 
+    
+    # ✅ NUEVO CAMPO: Para ocultar mensajes atendidos
+    archivado = models.BooleanField(default=False) 
+
+    class Meta:
+        ordering = ['fecha']

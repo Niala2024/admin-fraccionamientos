@@ -31,7 +31,8 @@ function Login() {
     setError('');
 
     try {
-      // ✅ CORRECCIÓN: Agregamos '/api' al inicio de la ruta
+      // ✅ CORRECCIÓN CLAVE: Agregamos '/api' al principio
+      // Antes fallaba porque buscaba en la raíz (/api-token-auth/)
       const res = await api.post('/api/api-token-auth/', credentials);
       
       const { token, user, casa } = res.data;
@@ -41,14 +42,19 @@ function Login() {
 
       // 2. Guardar datos de sesión
       localStorage.setItem('token', token);
-      localStorage.setItem('user_data', JSON.stringify(user)); // Guardamos el objeto completo
+      // Guardamos el objeto de usuario. Si el backend no lo envía, 
+      // podrías necesitar hacer un 'get' a /api/usuarios/me/ después.
+      if (user) {
+        localStorage.setItem('user_data', JSON.stringify(user));
+      }
       
       if (casa) {
           localStorage.setItem('session_casa', JSON.stringify(casa));
       }
 
       // 3. Redirección inteligente basada en permisos reales
-      const esAdmin = user.is_superuser || user.is_staff || (user.rol && user.rol.toLowerCase().includes('admin'));
+      // Verificamos si user existe para evitar errores si la respuesta es diferente
+      const esAdmin = user && (user.is_superuser || user.is_staff || (user.rol && user.rol.toLowerCase().includes('admin')));
       
       if (esAdmin) {
           navigate('/admin-panel');
@@ -62,8 +68,10 @@ function Login() {
       // Manejo de errores específicos
       if (!err.response) {
         setError('No se pudo conectar con el servidor. Revisa tu internet.');
-      } else if (err.response.status === 400 || err.response.status === 403) {
+      } else if (err.response.status === 400) {
         setError('Usuario o contraseña incorrectos.');
+      } else if (err.response.status === 403) {
+        setError('Acceso denegado. Verifica tus credenciales.');
       } else {
         setError('Ocurrió un error inesperado. Inténtalo más tarde.');
       }

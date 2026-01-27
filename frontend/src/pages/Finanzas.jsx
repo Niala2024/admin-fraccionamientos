@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   Container, Paper, Typography, Box, Button, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, AppBar, Toolbar, IconButton, Tab, Tabs, 
-  Alert, TextField, Select, MenuItem, InputLabel, FormControl
+  Alert, TextField, Select, MenuItem, InputLabel, FormControl, Grid // ✅ GRID AGREGADO AQUÍ
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/axiosConfig'; // Usamos la configuración centralizada
+import api from '../api/axiosConfig'; 
 import Footer from '../components/Footer';
 
 function Finanzas() {
@@ -146,6 +146,7 @@ function Finanzas() {
           {tabIndex === 1 && (
             <Box>
               <Typography variant="h6" gutterBottom>Registrar Nuevo Gasto (Egreso)</Typography>
+              {/* AQUÍ ES DONDE SE USA EL GRID QUE CAUSABA EL ERROR */}
               <Grid container spacing={2} sx={{ mb: 4 }}>
                 <Grid item xs={12} md={4}>
                   <FormControl fullWidth>
@@ -179,7 +180,7 @@ function Finanzas() {
                       <TableRow key={e.id}>
                         <TableCell>{e.fecha_pago}</TableCell>
                         <TableCell>{e.nombre_gasto}</TableCell>
-                        <TableCell color="error">-${e.monto}</TableCell>
+                        <TableCell sx={{ color: 'error.main' }}>-${e.monto}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

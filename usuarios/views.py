@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny # ✅ Importante
 from django.core.mail import send_mail
 from django.conf import settings
 
@@ -17,8 +18,6 @@ class UsuarioViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def enviar_correo_vecino(self, request):
         print("--- DIAGNÓSTICO DE CORREO ---")
-        print(f"PUERTO ACTUAL: {settings.EMAIL_PORT}")
-        print(f"USA SSL: {settings.EMAIL_USE_SSL}")
         destinatario = request.data.get('destinatario')
         asunto = request.data.get('asunto')
         mensaje = request.data.get('mensaje')
@@ -31,6 +30,10 @@ class UsuarioViewSet(viewsets.ModelViewSet):
             return Response({'error': str(e)}, status=500)
 
 class CustomAuthToken(ObtainAuthToken):
+    # 🛑 ESTAS DOS LÍNEAS ARREGLAN EL ERROR 403 (Forbidden)
+    authentication_classes = []  # Ignora cookies/sesiones viejas
+    permission_classes = [AllowAny] # Permite entrada a todos
+
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)

@@ -9,7 +9,6 @@ from django.views.generic import TemplateView
 from usuarios.views import UsuarioViewSet, CustomAuthToken
 from inmuebles.views import FraccionamientoViewSet, CasaViewSet, CalleViewSet
 from finanzas.views import PagoViewSet, TipoEgresoViewSet, EgresoViewSet, ReporteFinancieroView
-# Importamos también ServicioExternoViewSet por si decides usarlo en el futuro
 from comunidad.views import EncuestaViewSet, PublicacionViewSet, QuejaViewSet, AvisoViewSet, ServicioExternoViewSet
 from servicios.views import ServicioViewSet
 from seguridad.views import (
@@ -37,26 +36,23 @@ router.register(r'avisos', AvisoViewSet)
 router.register(r'tipos-egresos', TipoEgresoViewSet)
 router.register(r'egresos', EgresoViewSet)
 router.register(r'servicios', ServicioViewSet)
-# Si en el futuro quieres usar el nuevo directorio de comunidad, descomenta esto:
-# router.register(r'directorio-servicios', ServicioExternoViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
-    path('api-token-auth/', CustomAuthToken.as_view(), name='api_token_auth'),
+    
+    # ✅ RUTA CORREGIDA: Coincide con lo que busca tu Login.jsx (/api/api-token-auth/)
+    path('api/api-token-auth/', CustomAuthToken.as_view(), name='api_token_auth'),
+    
     path('api/generar-reporte/', ReporteFinancieroView.as_view(), name='generar_reporte'),
     path('api/reporte-accesos/', ReporteAccesosView.as_view(), name='reporte_accesos'),
-    
-    # ❌ QUITAMOS EL RE_PATH DE AQUÍ (Estaba bloqueando las imágenes)
 ]
 
-# ✅ 1. PRIMERO: Configuramos las imágenes (Media)
-# Django revisará esto primero. Si la URL pide una imagen, la entrega y se detiene aquí.
+# Configuración de Imágenes
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-# ✅ 2. AL FINAL: Agregamos el "Atrapa-todo" para React
-# Si no era API, ni Admin, ni Imagen... entonces sí, mándalo al Frontend.
+# "Atrapa-todo" para React
 urlpatterns += [
     re_path(r'^.*$', TemplateView.as_view(template_name='index.html')),
 ]

@@ -3,19 +3,18 @@ import {
   Container, Paper, Typography, Box, Table, TableBody, TableCell, 
   TableContainer, TableHead, TableRow, AppBar, Toolbar, IconButton, 
   Button, Chip, Dialog, DialogTitle, DialogContent, TextField, DialogActions,
-  Menu, MenuItem, Tooltip
+  Menu, MenuItem, Tooltip, CircularProgress
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ReplyIcon from '@mui/icons-material/Reply';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/axiosConfig'; // Usamos tu config global
 
 function Quejas() {
   const navigate = useNavigate();
-  const [quejas, setQuejas] = useState([]);
+  const [quejas, setQuejas] = useState([]); // Inicializado siempre como arreglo vacío
   const [loading, setLoading] = useState(true);
 
   // Estados para el Modal de Respuesta
@@ -34,9 +33,18 @@ function Quejas() {
   const cargarQuejas = async () => {
     try {
       const res = await api.get('/quejas/');
-      setQuejas(res.data.results || res.data); // Maneja paginación o lista directa
+      // ✅ PROTECCIÓN: Validamos si lo que llega es realmente un arreglo
+      const datosRecibidos = res.data.results || res.data;
+      
+      if (Array.isArray(datosRecibidos)) {
+          setQuejas(datosRecibidos);
+      } else {
+          console.error("Formato de quejas desconocido:", datosRecibidos);
+          setQuejas([]); // Evita el error .map
+      }
     } catch (error) {
       console.error("Error cargando quejas", error);
+      setQuejas([]);
     } finally {
       setLoading(false);
     }
@@ -57,21 +65,20 @@ function Quejas() {
 
   const handleAbrirRespuesta = (queja) => {
     setQuejaSeleccionada(queja);
-    setRespuestaTexto(queja.respuesta || ''); // Cargar respuesta previa si existe
+    setRespuestaTexto(queja.respuesta || '');
     setOpenDialog(true);
   };
 
   const handleEnviarRespuesta = async () => {
     if (!quejaSeleccionada) return;
     try {
-      // Enviamos la respuesta y cambiamos estatus a CONTESTADA automáticamente
       await api.patch(`/quejas/${quejaSeleccionada.id}/`, {
         respuesta: respuestaTexto,
         estatus: 'CONTESTADA' 
       });
       alert("Respuesta enviada correctamente");
       setOpenDialog(false);
-      cargarQuejas(); // Recargar para ver cambios
+      cargarQuejas(); 
     } catch (error) {
       alert("Error al enviar respuesta");
     }
@@ -87,13 +94,11 @@ function Quejas() {
     }
   };
 
-  // --- RENDERIZADO VISUAL ---
-
   const getStatusColor = (estatus) => {
     switch (estatus) {
       case 'RESUELTA': return 'success';
       case 'CONTESTADA': return 'warning';
-      default: return 'error'; // PENDIENTE
+      default: return 'error'; 
     }
   };
 
@@ -110,72 +115,80 @@ function Quejas() {
 
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         <Paper sx={{ p: 2 }}>
-          <TableContainer>
-            <Table>
-              <TableHead sx={{ bgcolor: '#eee' }}>
-                <TableRow>
-                  <TableCell>Fecha</TableCell>
-                  <TableCell>Vecino</TableCell>
-                  <TableCell>Asunto / Descripción</TableCell>
-                  <TableCell>Respuesta Admin</TableCell>
-                  <TableCell>Estatus</TableCell>
-                  <TableCell align="center">Acciones</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {quejas.length === 0 ? (
-                    <TableRow><TableCell colSpan={6} align="center">No hay quejas registradas.</TableCell></TableRow>
-                ) : (
-                    quejas.map((queja) => (
-                    <TableRow key={queja.id}>
-                        <TableCell>{new Date(queja.fecha_creacion).toLocaleDateString()}</TableCell>
-                        <TableCell>
-                            <Typography variant="body2" fontWeight="bold">
-                                {queja.usuario_nombre || "Anónimo"}
-                            </Typography>
-                            <Typography variant="caption" color="textSecondary">
-                                {queja.casa_info || "Sin Casa"}
-                            </Typography>
-                        </TableCell>
-                        <TableCell sx={{ maxWidth: 300 }}>
-                            <Typography variant="subtitle2">{queja.tipo}</Typography>
-                            <Typography variant="body2" color="textSecondary">{queja.descripcion}</Typography>
-                        </TableCell>
-                        <TableCell sx={{ maxWidth: 250 }}>
-                            {queja.respuesta ? (
-                                <Typography variant="body2" sx={{ fontStyle: 'italic', color: '#1b5e20' }}>
-                                    "{queja.respuesta}"
-                                </Typography>
-                            ) : (
-                                <Typography variant="caption" color="text.disabled">Sin respuesta</Typography>
-                            )}
-                        </TableCell>
-                        <TableCell>
-                            <Chip 
-                                label={queja.estatus || 'PENDIENTE'} 
-                                color={getStatusColor(queja.estatus)} 
-                                size="small"
-                                onClick={(e) => { setAnchorEl(e.currentTarget); setMenuQuejaId(queja.id); }}
-                            />
-                        </TableCell>
-                        <TableCell align="center">
-                            <Tooltip title="Responder">
-                                <IconButton color="primary" onClick={() => handleAbrirRespuesta(queja)}>
-                                    <ReplyIcon />
-                                </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Eliminar">
-                                <IconButton color="error" onClick={() => handleEliminar(queja.id)}>
-                                    <DeleteIcon />
-                                </IconButton>
-                            </Tooltip>
-                        </TableCell>
+          {loading ? (
+             <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
+                <CircularProgress />
+             </Box>
+          ) : (
+            <TableContainer>
+                <Table>
+                <TableHead sx={{ bgcolor: '#eee' }}>
+                    <TableRow>
+                    <TableCell>Fecha</TableCell>
+                    <TableCell>Vecino</TableCell>
+                    <TableCell>Asunto / Descripción</TableCell>
+                    <TableCell>Respuesta Admin</TableCell>
+                    <TableCell>Estatus</TableCell>
+                    <TableCell align="center">Acciones</TableCell>
                     </TableRow>
-                    ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                    {/* ✅ PROTECCIÓN EN EL RENDERIZADO */}
+                    {!quejas || quejas.length === 0 ? (
+                        <TableRow><TableCell colSpan={6} align="center">No hay quejas registradas.</TableCell></TableRow>
+                    ) : (
+                        quejas.map((queja) => (
+                        <TableRow key={queja.id}>
+                            <TableCell>{new Date(queja.fecha_creacion).toLocaleDateString()}</TableCell>
+                            <TableCell>
+                                <Typography variant="body2" fontWeight="bold">
+                                    {queja.usuario_nombre || "Anónimo"}
+                                </Typography>
+                                <Typography variant="caption" color="textSecondary">
+                                    {queja.casa_info || "Sin Casa"}
+                                </Typography>
+                            </TableCell>
+                            <TableCell sx={{ maxWidth: 300 }}>
+                                <Typography variant="subtitle2">{queja.tipo}</Typography>
+                                <Typography variant="body2" color="textSecondary">{queja.descripcion}</Typography>
+                            </TableCell>
+                            <TableCell sx={{ maxWidth: 250 }}>
+                                {queja.respuesta ? (
+                                    <Typography variant="body2" sx={{ fontStyle: 'italic', color: '#1b5e20' }}>
+                                        "{queja.respuesta}"
+                                    </Typography>
+                                ) : (
+                                    <Typography variant="caption" color="text.disabled">Sin respuesta</Typography>
+                                )}
+                            </TableCell>
+                            <TableCell>
+                                <Chip 
+                                    label={queja.estatus || 'PENDIENTE'} 
+                                    color={getStatusColor(queja.estatus)} 
+                                    size="small"
+                                    onClick={(e) => { setAnchorEl(e.currentTarget); setMenuQuejaId(queja.id); }}
+                                    sx={{ cursor: 'pointer' }}
+                                />
+                            </TableCell>
+                            <TableCell align="center">
+                                <Tooltip title="Responder">
+                                    <IconButton color="primary" onClick={() => handleAbrirRespuesta(queja)}>
+                                        <ReplyIcon />
+                                    </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Eliminar">
+                                    <IconButton color="error" onClick={() => handleEliminar(queja.id)}>
+                                        <DeleteIcon />
+                                    </IconButton>
+                                </Tooltip>
+                            </TableCell>
+                        </TableRow>
+                        ))
+                    )}
+                </TableBody>
+                </Table>
+            </TableContainer>
+          )}
         </Paper>
       </Container>
 

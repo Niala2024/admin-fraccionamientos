@@ -31,8 +31,8 @@ function Login() {
     setError('');
 
     try {
-      // ✅ Usamos la ruta relativa. Axios ya sabe cuál es la BaseURL
-      const res = await api.post('/api-token-auth/', credentials);
+      // ✅ CORRECCIÓN: Agregamos '/api' al inicio de la ruta
+      const res = await api.post('/api/api-token-auth/', credentials);
       
       const { token, user, casa } = res.data;
 
@@ -62,7 +62,7 @@ function Login() {
       // Manejo de errores específicos
       if (!err.response) {
         setError('No se pudo conectar con el servidor. Revisa tu internet.');
-      } else if (err.response.status === 400) {
+      } else if (err.response.status === 400 || err.response.status === 403) {
         setError('Usuario o contraseña incorrectos.');
       } else {
         setError('Ocurrió un error inesperado. Inténtalo más tarde.');

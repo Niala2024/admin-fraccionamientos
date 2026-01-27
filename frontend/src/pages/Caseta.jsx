@@ -3,7 +3,7 @@ import {
   Box, AppBar, Toolbar, Typography, Grid, Paper, Button, 
   Tabs, Tab, TextField, IconButton, List, ListItem, 
   ListItemText, ListItemAvatar, Avatar, Divider, Chip,
-  Card, CardContent, InputAdornment, useTheme, Badge
+  Card, CardContent, InputAdornment, useTheme, Badge, Tooltip // ✅ AQUI FALTABA EL TOOLTIP
 } from '@mui/material';
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { useSnackbar } from 'notistack';

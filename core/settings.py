@@ -1,6 +1,6 @@
 """
 Django settings for core project.
-Configuración Final: SMTP2GO + Fix CSRF 403 Login.
+Configuración Final: SMTP2GO + Fix CSRF 403 Login (Trusted Origins).
 """
 from pathlib import Path
 import os
@@ -17,6 +17,12 @@ EN_PRODUCCION = 'RAILWAY_ENVIRONMENT' in os.environ
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default')
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
+
+# ✅ SOLUCIÓN AL ERROR 403 EN RAILWAY/HTTPS
+# Esto le dice a Django que confíe en las peticiones que vienen de este dominio
+CSRF_TRUSTED_ORIGINS = [
+    'https://admin-fraccionamientos-production.up.railway.app'
+]
 
 # --- 2. APLICACIONES INSTALADAS ---
 INSTALLED_APPS = [
@@ -46,7 +52,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',  
     'django.middleware.security.SecurityMiddleware',
     
-    # Esta línea es vital para que Railway sirva archivos estáticos
+    # Vital para archivos estáticos en Railway
     'whitenoise.middleware.WhiteNoiseMiddleware', 
     
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -122,7 +128,7 @@ DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
 from corsheaders.defaults import default_headers
 
 CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = False # Importante mantener en False para evitar conflictos
+CORS_ALLOW_CREDENTIALS = False 
 
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "content-disposition",
@@ -133,15 +139,14 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "authorization",
 ]
 
-# --- 9. CONFIGURACIÓN DRF (CORREGIDA) ---
-# Aquí estaba el problema del 403. Eliminamos SessionAuthentication.
+# --- 9. CONFIGURACIÓN DRF ---
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
-        # 'rest_framework.authentication.SessionAuthentication',  <-- ¡ESTO SE ELIMINA!
+        # SessionAuthentication ELIMINADA para evitar conflictos
     ],
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny', # Permite acceso inicial (el login maneja su propia seguridad)
+        'rest_framework.permissions.AllowAny',
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50

@@ -27,7 +27,6 @@ class Visita(models.Model):
     empresa = models.CharField(max_length=100, blank=True, null=True) 
     placas_vehiculo = models.CharField(max_length=20, blank=True, null=True)
     
-    # ✅ IMPORTANTE: Hora exacta para la regla de 5 horas
     created_at = models.DateTimeField(auto_now_add=True) 
     fecha_validez = models.DateField(null=True, blank=True)
     
@@ -52,11 +51,12 @@ class ReporteDiario(models.Model):
     mensaje = models.TextField()
     fecha = models.DateTimeField(auto_now_add=True)
 
-# ✅ NUEVO MODELO CHAT (Faltaba esto)
+# ✅ MODELO CHAT ACTUALIZADO
 class MensajeChat(models.Model):
     remitente = models.ForeignKey(User, on_delete=models.CASCADE, related_name='mensajes_enviados')
     destinatario = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='mensajes_recibidos')
     mensaje = models.TextField()
     fecha = models.DateTimeField(auto_now_add=True)
     leido = models.BooleanField(default=False)
-    es_para_guardia = models.BooleanField(default=True)
+    # Importante para saber si el mensaje viene de la caseta (style visual)
+    es_guardia = models.BooleanField(default=False)

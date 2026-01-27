@@ -1,6 +1,6 @@
 from rest_framework import serializers
+from django.apps import apps
 from .models import Visita, Trabajador, AccesoTrabajador, Bitacora, ReporteDiario, MensajeChat
-from inmuebles.models import Casa # Importación directa para evitar errores
 
 class TrabajadorSerializer(serializers.ModelSerializer):
     casa_info = serializers.ReadOnlyField(source='casa.numero_exterior')
@@ -38,26 +38,34 @@ class ReporteDiarioSerializer(serializers.ModelSerializer):
         fields = '__all__'
         read_only_fields = ('guardia', 'fecha')
 
-# ✅ SERIALIZADOR DEL CHAT (CORREGIDO)
+# ✅ SERIALIZADOR CHAT CORREGIDO (Con 'es_mio')
 class MensajeChatSerializer(serializers.ModelSerializer):
-    # Nombre para mostrar (Ej: "Juan Perez")
     remitente_nombre = serializers.SerializerMethodField()
-    # Usuario técnico para que el Frontend sepa si es mensaje propio (Ej: "jperez")
     remitente_user = serializers.ReadOnlyField(source='remitente.username')
-    # Info de origen (Ej: "Casa 12" o "Seguridad")
     casa_remitente = serializers.SerializerMethodField()
+    
+    # Campo vital para el frontend: ¿Fui yo quien envió esto?
+    es_mio = serializers.SerializerMethodField()
 
     class Meta:
         model = MensajeChat
         fields = '__all__'
-        read_only_fields = ('remitente', 'fecha')
+        read_only_fields = ('remitente', 'fecha', 'es_guardia')
+
+    def get_es_mio(self, obj):
+        request = self.context.get('request')
+        if request and request.user:
+            return obj.remitente == request.user
+        return False
 
     def get_remitente_nombre(self, obj):
         return f"{obj.remitente.first_name} {obj.remitente.last_name}".strip() or obj.remitente.username
 
     def get_casa_remitente(self, obj):
         try:
-            # 1. Si es Staff/Guardia, no buscamos casa, retornamos directo.
+            # Usamos get_model para evitar importación circular
+            Casa = apps.get_model('inmuebles', 'Casa')
+            
             if obj.remitente.is_staff or obj.remitente.is_superuser:
                 return "C5 / Seguridad"
             
@@ -65,12 +73,9 @@ class MensajeChatSerializer(serializers.ModelSerializer):
             if 'guardia' in rol or 'admin' in rol:
                 return "C5 / Seguridad"
 
-            # 2. Si es residente, buscamos su casa de forma segura
             casa = Casa.objects.filter(propietario=obj.remitente).first()
             if casa:
                 return f"Casa {casa.numero_exterior}"
-            
             return "Vecino"
         except Exception:
-            # Si algo falla, no rompemos el servidor (Error 500), solo devolvemos genérico
             return "Usuario"

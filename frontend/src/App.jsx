@@ -14,6 +14,8 @@ import Reportes from './pages/Reportes';
 import Ayuda from './pages/Ayuda';
 import Directorio from './pages/Directorio';
 import Quejas from './pages/Quejas';
+import Finanzas from './pages/Finanzas';
+import PersonalExterno from './pages/PersonalExterno';
 
 function App() {
   return (
@@ -25,10 +27,11 @@ function App() {
         <Route path="/mi-perfil" element={<MiPerfil />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/residente" element={<Dashboard />} /> 
-
+        <Route path="/personal" element={<PersonalExterno />} />
         <Route path="/admin-panel" element={<AdminPanel />} />
         <Route path="/admin-vigilancia" element={<AdminVigilancia />} /> {/* ✅ RUTA NUEVA */}
         <Route path="/caseta" element={<Caseta />} />
+        <Route path="/finanzas" element={<Finanzas />} />
         
         <Route path="/visitas" element={<Visitas />} />
         <Route path="/comunidad" element={<Comunidad />} />

@@ -155,7 +155,6 @@ function AdminPanel() {
 
   useEffect(() => { cargarDatos(); }, [navigate]);
 
-  // Manejo de Novedades y Bitácora
   const cargarNovedadesDia = async () => {
     if(!fechaNovedades) return;
     try {
@@ -173,7 +172,6 @@ function AdminPanel() {
     printWindow.print();
   };
 
-  // Directorio de Servicios
   const cargarServicios = async () => {
     const res = await api.get('/api/servicios/');
     setListaServicios(res.data.results || res.data);
@@ -184,7 +182,6 @@ function AdminPanel() {
     cargarServicios();
   };
 
-  // QR Scanner
   useEffect(() => {
     let scanner = null;
     if (openScanner) {
@@ -263,7 +260,6 @@ function AdminPanel() {
   const handleCrearFraccionamiento = async () => { try { await api.post('/api/fraccionamientos/', { nombre: nombreNuevoFracc }); setOpenFracc(false); cargarDatos(); } catch(e) {} };
   const handleActualizarCuota = async () => { try { await api.patch(`/api/fraccionamientos/${fraccSeleccionado}/`, { cuota_mensual: nuevaCuota }); setOpenCuota(false); cargarDatos(); } catch (error) {} };
 
-  // ✅ DEFINICIÓN DE COLUMNAS (Estaba faltando)
   const columnasCasas = [
     { field: 'calle_nombre', headerName: 'Calle', width: 150 },
     { field: 'numero_exterior', headerName: 'Número', width: 100 },
@@ -298,7 +294,7 @@ function AdminPanel() {
     </Card>
   );
 
-  // ✅ VARIABLE CORREGIDA: Esta línea es crucial para que el DataGrid y el Modal de Usuarios funcionen
+  // ✅ VARIABLE CORREGIDA: Define las casas filtradas antes de usarlas
   const casasFiltradas = casas.filter(c => !fraccSeleccionado || c.fraccionamiento === fraccSeleccionado);
 
   return (
@@ -322,9 +318,19 @@ function AdminPanel() {
                 <Grid item><Button variant="contained" sx={{ bgcolor: '#546e7a' }} onClick={() => setOpenCalle(true)}>Calles</Button></Grid>
                 <Grid item><Button variant="contained" color="primary" onClick={() => setOpenCasa(true)}>Casa</Button></Grid>
                 <Grid item><Button variant="contained" color="info" onClick={() => abrirModalUsuario('residente')}>+ Vecino</Button></Grid>
-                {/* Botones que ahora navegan a páginas independientes */}
+                
+                {/* ✅ BOTONES RESTAURADOS QUE FALTABAN */}
+                <Grid item><Button variant="contained" sx={{ bgcolor: '#455a64' }} startIcon={<LocalPoliceIcon />} onClick={() => abrirModalUsuario('guardia')}>+ Guardia</Button></Grid>
+                <Grid item><Button variant="contained" sx={{ bgcolor: '#2e7d32', color: 'white' }} startIcon={<MonetizationOnIcon />} onClick={() => { const actual = fraccionamientos.find(f => f.id === fraccSeleccionado)?.cuota_mensual || 0; setNuevaCuota(actual); setOpenCuota(true); }}>Cuota Mensual</Button></Grid>
+                
+                {/* Botones de navegación a nuevas páginas */}
                 <Grid item><Button variant="contained" sx={{ bgcolor: '#795548' }} startIcon={<EngineeringIcon />} onClick={() => navigate('/personal')}>Personal</Button></Grid>
+                <Grid item><Button variant="contained" sx={{ bgcolor: '#7b1fa2' }} startIcon={<ForumIcon />} onClick={() => navigate('/comunidad')}>Comunidad</Button></Grid>
                 <Grid item><Button variant="contained" color="warning" startIcon={<AccountBalanceWalletIcon />} onClick={() => navigate('/finanzas')}>Finanzas</Button></Grid>
+                
+                {/* Directorio restaurado con botón para abrir modal */}
+                <Grid item><Button variant="contained" sx={{ bgcolor: '#00695c' }} startIcon={<StorefrontIcon />} onClick={() => {setOpenServicios(true); cargarServicios();}}>Directorio</Button></Grid>
+                
                 <Grid item><Button variant="contained" sx={{ bgcolor: '#d32f2f' }} startIcon={<ReportProblemIcon />} onClick={() => navigate('/quejas')}>Buzón Quejas</Button></Grid>
                 <Grid item><Button variant="contained" sx={{ bgcolor: '#0277bd' }} onClick={() => navigate('/reportes')}>Reportes</Button></Grid>
                 <Grid item><Button variant="contained" sx={{ bgcolor: '#f57c00' }} onClick={() => setOpenNovedades(true)}>Bitácora</Button></Grid>
@@ -339,12 +345,12 @@ function AdminPanel() {
         </Grid>
 
         <Paper sx={{ height: 600, width: '100%', p: 2 }}>
-          {/* ✅ Corrección: Uso de la variable casasFiltradas definida */}
+          {/* ✅ USO CORRECTO DE LA VARIABLE DEFINIDA */}
           <DataGrid rows={casasFiltradas} columns={columnasCasas} pageSize={10} loading={loading} />
         </Paper>
       </Container>
 
-      {/* Modales Básicos */}
+      {/* --- MODALES --- */}
       <Dialog open={openScanner} onClose={() => setOpenScanner(false)} fullWidth maxWidth="sm">
           <DialogTitle sx={{bgcolor: '#333', color: 'white'}}>Escáner de Acceso</DialogTitle>
           <DialogContent sx={{ textAlign: 'center', p: 3 }}><div id="reader-admin"></div></DialogContent>

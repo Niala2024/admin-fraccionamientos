@@ -1,19 +1,18 @@
 import axios from 'axios';
 
-// 1. Detectamos automáticamente si estamos en la nube o en la computadora
-const isLocal = window.location.hostname === 'localhost';
-const baseURL = isLocal 
-  ? 'http://127.0.0.1:8000' 
-  : 'https://admin-fraccionamientos-production.up.railway.app';
+// 1. URL Base: Usamos solo el dominio principal.
+// Importante: NO ponemos '/api' al final aquí, porque tus archivos
+// AdminPanel.jsx y Quejas.jsx ya escriben '/api/...' en sus peticiones.
+const apiUrl = import.meta.env.VITE_API_URL || 
+               'https://admin-fraccionamientos-production.up.railway.app';
 
 const api = axios.create({
-  baseURL: baseURL,
-  // ⚠️ NOTA: Al usar 'Token' en el header, no necesitas 'withCredentials'.
-  // Si lo dejas en true y el servidor usa CORS_ALLOW_ALL_ORIGINS, el navegador bloqueará la petición.
+  baseURL: apiUrl,
   withCredentials: false, 
 });
 
-// Interceptor para agregar el token automáticamente
+// 2. Interceptor de Seguridad
+// Inyecta el token en todas las llamadas automáticamente
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');

@@ -8,21 +8,20 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ReplyIcon from '@mui/icons-material/Reply';
-import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/axiosConfig'; // Usamos tu config global
+
+// ✅ CORRECCIÓN 1: Importamos el archivo correcto
+import api from '../api/axiosConfig'; 
 
 function Quejas() {
   const navigate = useNavigate();
-  const [quejas, setQuejas] = useState([]); // Inicializado siempre como arreglo vacío
+  const [quejas, setQuejas] = useState([]); 
   const [loading, setLoading] = useState(true);
 
-  // Estados para el Modal de Respuesta
+  // Estados para modales
   const [openDialog, setOpenDialog] = useState(false);
   const [quejaSeleccionada, setQuejaSeleccionada] = useState(null);
   const [respuestaTexto, setRespuestaTexto] = useState('');
-
-  // Estados para Menú de Estatus
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuQuejaId, setMenuQuejaId] = useState(null);
 
@@ -32,15 +31,14 @@ function Quejas() {
 
   const cargarQuejas = async () => {
     try {
-      const res = await api.get('/quejas/');
-      // ✅ PROTECCIÓN: Validamos si lo que llega es realmente un arreglo
+      // ✅ CORRECCIÓN 2: Agregamos '/api' a la ruta
+      const res = await api.get('/api/quejas/');
       const datosRecibidos = res.data.results || res.data;
       
       if (Array.isArray(datosRecibidos)) {
           setQuejas(datosRecibidos);
       } else {
-          console.error("Formato de quejas desconocido:", datosRecibidos);
-          setQuejas([]); // Evita el error .map
+          setQuejas([]); 
       }
     } catch (error) {
       console.error("Error cargando quejas", error);
@@ -50,12 +48,11 @@ function Quejas() {
     }
   };
 
-  // --- ACCIONES ---
-
   const handleEliminar = async (id) => {
     if (!confirm("¿Estás seguro de eliminar esta queja permanentemente?")) return;
     try {
-      await api.delete(`/quejas/${id}/`);
+      // ✅ CORRECCIÓN 3: Ruta con /api
+      await api.delete(`/api/quejas/${id}/`);
       setQuejas(quejas.filter(q => q.id !== id));
       alert("Queja eliminada");
     } catch (error) {
@@ -72,7 +69,8 @@ function Quejas() {
   const handleEnviarRespuesta = async () => {
     if (!quejaSeleccionada) return;
     try {
-      await api.patch(`/quejas/${quejaSeleccionada.id}/`, {
+      // ✅ CORRECCIÓN 4: Ruta con /api
+      await api.patch(`/api/quejas/${quejaSeleccionada.id}/`, {
         respuesta: respuestaTexto,
         estatus: 'CONTESTADA' 
       });
@@ -86,7 +84,8 @@ function Quejas() {
 
   const handleCambiarEstatus = async (nuevoEstatus) => {
     try {
-      await api.patch(`/quejas/${menuQuejaId}/`, { estatus: nuevoEstatus });
+      // ✅ CORRECCIÓN 5: Ruta con /api
+      await api.patch(`/api/quejas/${menuQuejaId}/`, { estatus: nuevoEstatus });
       cargarQuejas();
       setAnchorEl(null);
     } catch (error) {
@@ -133,7 +132,6 @@ function Quejas() {
                     </TableRow>
                 </TableHead>
                 <TableBody>
-                    {/* ✅ PROTECCIÓN EN EL RENDERIZADO */}
                     {!quejas || quejas.length === 0 ? (
                         <TableRow><TableCell colSpan={6} align="center">No hay quejas registradas.</TableCell></TableRow>
                     ) : (
@@ -192,41 +190,25 @@ function Quejas() {
         </Paper>
       </Container>
 
-      {/* MODAL DE RESPUESTA */}
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Responder a {quejaSeleccionada?.usuario_nombre}</DialogTitle>
+        <DialogTitle>Responder a Queja</DialogTitle>
         <DialogContent>
             <Typography variant="body2" gutterBottom sx={{ mt: 1, bgcolor: '#f0f0f0', p: 1, borderRadius: 1 }}>
-                <strong>Queja original:</strong> {quejaSeleccionada?.descripcion}
+                <strong>Original:</strong> {quejaSeleccionada?.descripcion}
             </Typography>
-            <TextField
-                autoFocus
-                margin="dense"
-                label="Escribe tu respuesta oficial"
-                fullWidth
-                multiline
-                rows={4}
-                value={respuestaTexto}
-                onChange={(e) => setRespuestaTexto(e.target.value)}
-            />
+            <TextField autoFocus margin="dense" label="Escribe tu respuesta oficial" fullWidth multiline rows={4} value={respuestaTexto} onChange={(e) => setRespuestaTexto(e.target.value)} />
         </DialogContent>
         <DialogActions>
             <Button onClick={() => setOpenDialog(false)} color="inherit">Cancelar</Button>
-            <Button onClick={handleEnviarRespuesta} variant="contained" color="primary">Enviar y Cerrar</Button>
+            <Button onClick={handleEnviarRespuesta} variant="contained" color="primary">Enviar</Button>
         </DialogActions>
       </Dialog>
 
-      {/* MENÚ FLOTANTE PARA CAMBIAR ESTATUS RÁPIDO */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={() => setAnchorEl(null)}
-      >
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
         <MenuItem onClick={() => handleCambiarEstatus('PENDIENTE')}>Marcar Pendiente</MenuItem>
         <MenuItem onClick={() => handleCambiarEstatus('CONTESTADA')}>Marcar Contestada</MenuItem>
         <MenuItem onClick={() => handleCambiarEstatus('RESUELTA')}>Marcar Resuelta</MenuItem>
       </Menu>
-
     </Box>
   );
 }

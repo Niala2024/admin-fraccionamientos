@@ -33,8 +33,7 @@ function Login() {
     try {
       // ✅ CORRECCIÓN CLAVE: Agregamos '/api' al principio
       // Antes fallaba porque buscaba en la raíz (/api-token-auth/)
-      const res = await api.post('/api/api-token-auth/', credentials);
-      
+      const res = await api.post('/api/api-token-auth/', credentials); // ✅ Con /api al inicio
       const { token, user, casa } = res.data;
 
       // 1. Limpieza profunda antes de iniciar nueva sesión

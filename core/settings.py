@@ -1,6 +1,6 @@
 """
 Django settings for core project.
-Configuración Final: SMTP2GO (Ok) + CORS Corregido (Para PDF).
+Configuración Final: SMTP2GO + Fix CSRF 403 Login.
 """
 from pathlib import Path
 import os
@@ -42,11 +42,11 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    # ⚠️ IMPORTANTE: CorsMiddleware debe ser el primero o segundo
+    # ⚠️ IMPORTANTE: CorsMiddleware debe ser el primero
     'corsheaders.middleware.CorsMiddleware',  
     'django.middleware.security.SecurityMiddleware',
     
-    # Esta línea es vital para que Railway sirva archivos estáticos (CSS/JS)
+    # Esta línea es vital para que Railway sirva archivos estáticos
     'whitenoise.middleware.WhiteNoiseMiddleware', 
     
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -108,8 +108,7 @@ STATICFILES_DIRS = ['/app/frontend/dist']
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# --- 7. CONFIGURACIÓN SMTP2GO (ESTRATEGIA PUERTO 443) ---
-# (Esto NO se tocó, se deja tal cual porque ya funciona)
+# --- 7. CONFIGURACIÓN SMTP2GO ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'mail.smtp2go.com'
 EMAIL_PORT = 443
@@ -119,13 +118,12 @@ EMAIL_HOST_USER = 'railwayapp'
 EMAIL_HOST_PASSWORD = os.getenv('SMTP2GO_PASSWORD')
 DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
 
-# --- 8. CORS Y DRF (MODO PERMISIVO PARA TOKENS) ---
+# --- 8. CORS ---
 from corsheaders.defaults import default_headers
 
 CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = False
+CORS_ALLOW_CREDENTIALS = False # Importante mantener en False para evitar conflictos
 
-# Mantenemos los headers necesarios
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "content-disposition",
     "accept-encoding",
@@ -135,11 +133,15 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "authorization",
 ]
 
-# Configuración de DRF (Sin cambios, solo confirmando)
+# --- 9. CONFIGURACIÓN DRF (CORREGIDA) ---
+# Aquí estaba el problema del 403. Eliminamos SessionAuthentication.
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+        # 'rest_framework.authentication.SessionAuthentication',  <-- ¡ESTO SE ELIMINA!
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.AllowAny', # Permite acceso inicial (el login maneja su propia seguridad)
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50

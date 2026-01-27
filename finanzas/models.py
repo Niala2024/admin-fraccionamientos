@@ -1,5 +1,6 @@
 from django.db import models
 from inmuebles.models import Casa
+from django.conf import settings
 
 class Pago(models.Model):
     ESTADOS = [
@@ -33,3 +34,20 @@ class Egreso(models.Model):
     fecha_pago = models.DateField(auto_now_add=True)
     descripcion = models.TextField(blank=True, null=True)
     comprobante = models.ImageField(upload_to='egresos/', blank=True, null=True)
+# ✅ AGREGA ESTE MODELO AL FINAL DEL ARCHIVO:
+class Queja(models.Model):
+    ESTATUS_CHOICES = [
+        ('PENDIENTE', 'Pendiente'),
+        ('CONTESTADA', 'Contestada'),
+        ('RESUELTA', 'Resuelta'),
+    ]
+
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='quejas')
+    tipo = models.CharField(max_length=100, verbose_name="Asunto")
+    descripcion = models.TextField()
+    respuesta = models.TextField(blank=True, null=True, verbose_name="Respuesta Administrativa")
+    estatus = models.CharField(max_length=20, choices=ESTATUS_CHOICES, default='PENDIENTE')
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.tipo} - {self.usuario}"

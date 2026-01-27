@@ -7,7 +7,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LoginIcon from '@mui/icons-material/Login';
 import { useNavigate } from 'react-router-dom';
-import api from '../api/axiosConfig'; // ✅ Usamos la instancia centralizada
+import api from '../api/axiosConfig'; 
 
 function Login() {
   const navigate = useNavigate();
@@ -18,7 +18,7 @@ function Login() {
 
   const handleChange = (e) => {
     setCredentials({ ...credentials, [e.target.name]: e.target.value });
-    if (error) setError(''); // Limpiar error mientras escribe
+    if (error) setError(''); 
   };
 
   const handleLogin = async (e) => {
@@ -31,46 +31,42 @@ function Login() {
     setError('');
 
     try {
-      // ✅ CORRECCIÓN CLAVE: Agregamos '/api' al principio
-      // Antes fallaba porque buscaba en la raíz (/api-token-auth/)
-      const res = await api.post('/api/api-token-auth/', credentials); // ✅ Con /api al inicio
+      // Petición de login
+      const res = await api.post('/api/api-token-auth/', credentials);
       const { token, user, casa } = res.data;
 
-      // 1. Limpieza profunda antes de iniciar nueva sesión
+      // 1. Limpieza y Guardado
       localStorage.clear();
-
-      // 2. Guardar datos de sesión
       localStorage.setItem('token', token);
-      // Guardamos el objeto de usuario. Si el backend no lo envía, 
-      // podrías necesitar hacer un 'get' a /api/usuarios/me/ después.
-      if (user) {
-        localStorage.setItem('user_data', JSON.stringify(user));
-      }
       
-      if (casa) {
-          localStorage.setItem('session_casa', JSON.stringify(casa));
-      }
+      if (user) localStorage.setItem('user_data', JSON.stringify(user));
+      if (casa) localStorage.setItem('session_casa', JSON.stringify(casa));
 
-      // 3. Redirección inteligente basada en permisos reales
-      // Verificamos si user existe para evitar errores si la respuesta es diferente
-      const esAdmin = user && (user.is_superuser || user.is_staff || (user.rol && user.rol.toLowerCase().includes('admin')));
-      
+      // 2. LÓGICA DE REDIRECCIÓN INTELIGENTE
+      // Normalizamos el rol a minúsculas para evitar errores (Ej: "Guardia", "guardia", "GUARDIA")
+      const rol = user.rol ? user.rol.toLowerCase() : '';
+      const esAdmin = user.is_superuser || user.is_staff || rol.includes('admin');
+      // Detectamos palabras clave de seguridad
+      const esVigilancia = rol.includes('guardia') || rol.includes('vigilante') || rol.includes('seguridad');
+
       if (esAdmin) {
+          // Si es Admin -> Panel General
           navigate('/admin-panel');
+      } else if (esVigilancia) {
+          // ✅ AQUI ESTABA FALTANDO: Si es Guardia -> Monitor de Vigilancia
+          navigate('/admin-vigilancia'); 
       } else {
+          // Si no es ninguno -> Dashboard de Vecino
           navigate('/dashboard');
       }
 
     } catch (err) {
       console.error("Error en Login:", err);
       
-      // Manejo de errores específicos
       if (!err.response) {
         setError('No se pudo conectar con el servidor. Revisa tu internet.');
-      } else if (err.response.status === 400) {
+      } else if (err.response.status === 400 || err.response.status === 403) {
         setError('Usuario o contraseña incorrectos.');
-      } else if (err.response.status === 403) {
-        setError('Acceso denegado. Verifica tus credenciales.');
       } else {
         setError('Ocurrió un error inesperado. Inténtalo más tarde.');
       }

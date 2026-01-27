@@ -47,7 +47,6 @@ class MensajeChatSerializer(serializers.ModelSerializer):
     class Meta:
         model = MensajeChat
         fields = '__all__'
-        # Archivamos vía acción, no edición directa
         read_only_fields = ('remitente', 'fecha', 'es_guardia', 'archivado')
 
     def get_es_mio(self, obj):

@@ -31,38 +31,36 @@ function Login() {
     setError('');
 
     try {
-      // Petición de login
       const res = await api.post('/api/api-token-auth/', credentials);
       const { token, user, casa } = res.data;
 
-      // 1. Limpieza y Guardado
+      // 1. Guardar Sesión
       localStorage.clear();
       localStorage.setItem('token', token);
       
       if (user) localStorage.setItem('user_data', JSON.stringify(user));
       if (casa) localStorage.setItem('session_casa', JSON.stringify(casa));
 
-      // 2. LÓGICA DE REDIRECCIÓN INTELIGENTE
-      // Normalizamos el rol a minúsculas para evitar errores (Ej: "Guardia", "guardia", "GUARDIA")
+      // 2. LÓGICA DE REDIRECCIÓN (CORREGIDA)
       const rol = user.rol ? user.rol.toLowerCase() : '';
       const esAdmin = user.is_superuser || user.is_staff || rol.includes('admin');
-      // Detectamos palabras clave de seguridad
-      const esVigilancia = rol.includes('guardia') || rol.includes('vigilante') || rol.includes('seguridad');
+      
+      // Detectamos si es personal de seguridad
+      const esSeguridad = rol.includes('guardia') || rol.includes('vigilante') || rol.includes('seguridad');
 
       if (esAdmin) {
-          // Si es Admin -> Panel General
+          // Admin General -> Panel Administrativo
           navigate('/admin-panel');
-      } else if (esVigilancia) {
-          // ✅ AQUI ESTABA FALTANDO: Si es Guardia -> Monitor de Vigilancia
-          navigate('/admin-vigilancia'); 
+      } else if (esSeguridad) {
+          // ✅ CORRECCIÓN: Los guardias van a la CASETA (Operativo), no al C5 (Monitoreo)
+          navigate('/caseta'); 
       } else {
-          // Si no es ninguno -> Dashboard de Vecino
+          // Residentes -> Dashboard de Vecino
           navigate('/dashboard');
       }
 
     } catch (err) {
       console.error("Error en Login:", err);
-      
       if (!err.response) {
         setError('No se pudo conectar con el servidor. Revisa tu internet.');
       } else if (err.response.status === 400 || err.response.status === 403) {

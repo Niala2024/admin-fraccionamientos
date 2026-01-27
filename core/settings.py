@@ -1,11 +1,12 @@
 """
 Django settings for core project.
-Configuración Final: SMTP2GO + Fix CSRF 403 Login (Trusted Origins).
+Configuración Final: HARDENING DE SEGURIDAD (Producción).
 """
 from pathlib import Path
 import os
 import dj_database_url
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 # Cargar variables de entorno
 load_dotenv()
@@ -13,15 +14,21 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- 1. SEGURIDAD Y ENTORNO ---
+# Detectamos si estamos corriendo en Railway
 EN_PRODUCCION = 'RAILWAY_ENVIRONMENT' in os.environ
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default')
-DEBUG = True
-ALLOWED_HOSTS = ["*"]
 
-# ✅ SOLUCIÓN AL ERROR 403 EN RAILWAY/HTTPS
-# Esto le dice a Django que confíe en las peticiones que vienen de este dominio
-CSRF_TRUSTED_ORIGINS = [
-    'https://admin-fraccionamientos-production.up.railway.app'
+# Clave secreta: En producción la toma de Railway, en local usa la default
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default')
+
+# 🛑 DEBUG: Se apaga automáticamente en la nube para proteger datos sensibles
+DEBUG = not EN_PRODUCCION
+
+# 🔒 ALLOWED_HOSTS: Solo permitimos tráfico legítimo
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    '.railway.app', # Permite cualquier subdominio de railway
+    'admin-fraccionamientos-production.up.railway.app' # Tu dominio específico
 ]
 
 # --- 2. APLICACIONES INSTALADAS ---
@@ -48,13 +55,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    # ⚠️ IMPORTANTE: CorsMiddleware debe ser el primero
     'corsheaders.middleware.CorsMiddleware',  
     'django.middleware.security.SecurityMiddleware',
-    
-    # Vital para archivos estáticos en Railway
     'whitenoise.middleware.WhiteNoiseMiddleware', 
-    
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -124,10 +127,22 @@ EMAIL_HOST_USER = 'railwayapp'
 EMAIL_HOST_PASSWORD = os.getenv('SMTP2GO_PASSWORD')
 DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
 
-# --- 8. CORS ---
-from corsheaders.defaults import default_headers
+# --- 8. SEGURIDAD CORS Y CSRF (HARDENING) ---
 
-CORS_ALLOW_ALL_ORIGINS = True
+# 🛑 Ya no permitimos "todos los orígenes". Solo tu dominio real.
+CORS_ALLOW_ALL_ORIGINS = False
+
+CORS_ALLOWED_ORIGINS = [
+    "https://admin-fraccionamientos-production.up.railway.app",
+    "http://localhost:5173", # Útil si sigues desarrollando en local
+    "http://127.0.0.1:5173"
+]
+
+# Lista de confianza para evitar error 403 en Forms/Login
+CSRF_TRUSTED_ORIGINS = [
+    'https://admin-fraccionamientos-production.up.railway.app'
+]
+
 CORS_ALLOW_CREDENTIALS = False 
 
 CORS_ALLOW_HEADERS = list(default_headers) + [
@@ -139,14 +154,17 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "authorization",
 ]
 
-# --- 9. CONFIGURACIÓN DRF ---
+# --- 9. CONFIGURACIÓN DRF (SEGURIDAD ACTIVADA) ---
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
-        # SessionAuthentication ELIMINADA para evitar conflictos
+        # SessionAuthentication DESACTIVADA para evitar conflictos CSRF
     ],
+    # 🔒 CAMBIO DE SEGURIDAD FINAL:
+    # Por defecto, TODO requiere estar logueado.
+    # (El Login funciona porque en views.py le pusimos AllowAny explícitamente).
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+        'rest_framework.permissions.IsAuthenticated', 
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50

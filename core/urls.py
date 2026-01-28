@@ -5,8 +5,8 @@ from django.conf.urls.static import static
 from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
 
-# --- IMPORTANTE: Aquí importamos LoginView ---
-from usuarios.views import UsuarioViewSet, LoginView, PerfilView
+# --- VISTAS ---
+from usuarios.views import UsuarioViewSet #, LoginView, PerfilView <--- COMENTADO TEMPORALMENTE
 from inmuebles.views import InmuebleViewSet, ReservacionAmenidadViewSet
 from finanzas.views import ReciboViewSet, PagoViewSet
 from seguridad.views import TrabajadorViewSet, VisitaViewSet
@@ -26,7 +26,7 @@ router.register(r'trabajadores', TrabajadorViewSet)
 router.register(r'visitas', VisitaViewSet)
 router.register(r'solicitudes', SolicitudServicioViewSet)
 
-# Rutas de Comunidad
+# Comunidad
 router.register(r'foro', PublicacionViewSet, basename='foro')
 router.register(r'encuestas', EncuestaViewSet)
 router.register(r'quejas', QuejaViewSet, basename='quejas')
@@ -38,9 +38,9 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     
-    # LoginView ya está importado arriba, así que esto funcionará
-    path('api/login/', LoginView.as_view(), name='login'),
-    path('api/perfil/', PerfilView.as_view(), name='perfil'),
+    # --- COMENTADO PARA QUE EL SERVIDOR ARRANQUE SI O SI ---
+    # path('api/login/', LoginView.as_view(), name='login'),
+    # path('api/perfil/', PerfilView.as_view(), name='perfil'),
     
     path('favicon.ico', RedirectView.as_view(url='/static/favicon.ico', permanent=True)),
 ]
@@ -52,5 +52,3 @@ else:
     urlpatterns += [
         path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
     ]
-
-# --- VERSION CORREGIDA FINAL ---

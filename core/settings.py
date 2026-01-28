@@ -1,6 +1,6 @@
 """
 Django settings for core project.
-Configuración Final: HARDENING DE SEGURIDAD (Producción).
+Configuración Restaurada: Basada en tu respaldo funcional.
 """
 from pathlib import Path
 import os
@@ -10,6 +10,7 @@ from corsheaders.defaults import default_headers
 
 load_dotenv()
 
+# BASE_DIR apunta a donde está manage.py
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- 1. SEGURIDAD ---
@@ -31,15 +32,16 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
-    
-    'cloudinary_storage',
     'django.contrib.staticfiles',
+    
+    # Apps de Terceros
+    'cloudinary_storage',
     'cloudinary',
-
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
 
+    # Tus Apps
     'usuarios.apps.UsuariosConfig',
     'inmuebles',
     'seguridad',
@@ -49,9 +51,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware', 
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -65,8 +67,8 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        # Apuntamos directo a frontend/dist
-        'DIRS': [os.path.join(BASE_DIR, 'frontend/dist')],
+        # ✅ RESTAURADO: Usamos la ruta absoluta que te funcionaba
+        'DIRS': ['/app/frontend/dist'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -102,16 +104,17 @@ TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_TZ = True
 
-# --- 6. ESTÁTICOS (CONFIGURACIÓN ROBUSTA) ---
-STATIC_URL = '/static/' 
+# --- 6. ESTÁTICOS ---
+# ✅ CORRECCIÓN CRÍTICA: Debe tener la barra inicial '/static/' (tu respaldo tenía 'static/')
+STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
+# ✅ RESTAURADO: Usamos la ruta absoluta que te funcionaba
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'frontend/dist'),
+    '/app/frontend/dist'
 ]
 
-# ✅ CAMBIO CLAVE: Usamos 'CompressedStaticFilesStorage' (sin Manifest) 
-# para evitar error 500 si falta algún archivo
+# ✅ SEGURIDAD: Usamos este storage para que no falle si falta un archivo pequeño
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 MEDIA_URL = '/media/'
@@ -138,12 +141,14 @@ DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "https://admin-fraccionamientos-production.up.railway.app",
-    "http://localhost:5173", 
+    "http://localhost:5173",
     "http://127.0.0.1:5173"
 ]
 CSRF_TRUSTED_ORIGINS = ['https://admin-fraccionamientos-production.up.railway.app']
-CORS_ALLOW_CREDENTIALS = False 
-CORS_ALLOW_HEADERS = list(default_headers) + ["content-disposition", "accept-encoding", "content-type", "accept", "origin", "authorization"]
+CORS_ALLOW_CREDENTIALS = False
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "content-disposition", "accept-encoding", "content-type", "accept", "origin", "authorization"
+]
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': ['rest_framework.authentication.TokenAuthentication'],
@@ -151,5 +156,3 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50
 }
-
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

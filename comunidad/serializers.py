@@ -1,15 +1,21 @@
 from rest_framework import serializers
 from .models import (
     Publicacion, Comentario, Encuesta, OpcionEncuesta, 
-    Queja, Aviso, ServicioExterno, CalificacionServicio
+    Queja, Aviso, ServicioExterno, CalificacionServicio, ConfiguracionComunidad
 )
 
 class ComentarioSerializer(serializers.ModelSerializer):
     autor_nombre = serializers.CharField(source='autor.username', read_only=True)
+    autor_avatar = serializers.SerializerMethodField()
     class Meta:
         model = Comentario
         fields = '__all__'
         read_only_fields = ['autor', 'fecha_creacion']
+    
+    def get_autor_avatar(self, obj):
+        if hasattr(obj.autor, 'avatar') and obj.autor.avatar:
+            return obj.autor.avatar.url
+        return None
 
 class PublicacionSerializer(serializers.ModelSerializer):
     autor_nombre = serializers.CharField(source='autor.username', read_only=True)
@@ -63,3 +69,9 @@ class ServicioExternoSerializer(serializers.ModelSerializer):
         model = ServicioExterno
         fields = '__all__'
         read_only_fields = ['creado_por', 'fecha_registro']
+
+# ✅ NUEVO SERIALIZER
+class ConfiguracionComunidadSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConfiguracionComunidad
+        fields = '__all__'

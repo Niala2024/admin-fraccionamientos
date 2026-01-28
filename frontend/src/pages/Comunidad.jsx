@@ -3,7 +3,7 @@ import {
   Container, Grid, Paper, Typography, Box, TextField, Button, 
   Avatar, IconButton, Card, CardHeader, CardContent, CardMedia, 
   CardActions, Divider, CircularProgress, Tabs, Tab, Chip,
-  FormControl, RadioGroup, FormControlLabel, Radio
+  FormControl, RadioGroup, FormControlLabel, Radio, Tooltip, Fade
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { useNavigate } from 'react-router-dom';
@@ -13,7 +13,7 @@ import SendIcon from '@mui/icons-material/Send';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
-import ShareIcon from '@mui/icons-material/Share';
+import EditIcon from '@mui/icons-material/Edit';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import StorefrontIcon from '@mui/icons-material/Storefront'; 
@@ -22,6 +22,7 @@ import CampaignIcon from '@mui/icons-material/Campaign';
 import PollIcon from '@mui/icons-material/Poll'; 
 import ReportProblemIcon from '@mui/icons-material/ReportProblem'; 
 import CancelIcon from '@mui/icons-material/Cancel';
+import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
 
 import api from '../api/axiosConfig'; 
 
@@ -32,6 +33,7 @@ function Comunidad() {
   const sessionUser = JSON.parse(localStorage.getItem('user_data') || '{}');
 
   const [tabIndex, setTabIndex] = useState(0);
+  const [config, setConfig] = useState({ imagen_portada: null, titulo_comunidad: 'Nuestra Comunidad' });
 
   // Estados Muro
   const [posts, setPosts] = useState([]);
@@ -50,6 +52,7 @@ function Comunidad() {
 
   useEffect(() => {
     if (!token) navigate('/');
+    cargarConfiguracion();
     cargarDatos();
   }, [tabIndex]);
 
@@ -57,6 +60,24 @@ function Comunidad() {
       if (tabIndex === 0) cargarPosts();
       if (tabIndex === 1) cargarEncuestas();
       if (tabIndex === 2) cargarQuejas();
+  };
+
+  const cargarConfiguracion = async () => {
+      try { const res = await api.get('/api/config-comunidad/'); if(res.data.id) setConfig(res.data); } catch(e){}
+  };
+
+  const cambiarPortada = async (e) => {
+      const file = e.target.files[0];
+      if(!file) return;
+      const formData = new FormData();
+      formData.append('imagen_portada', file);
+      try {
+          const res = await api.post('/api/config-comunidad/', formData, {
+            headers: { 'Authorization': `Token ${token}` }
+          });
+          setConfig(res.data);
+          enqueueSnackbar("Portada actualizada", {variant:'success'});
+      } catch(e) { enqueueSnackbar("Error al subir portada", {variant:'error'}); }
   };
 
   const cargarPosts = async () => {
@@ -74,146 +95,189 @@ function Comunidad() {
   const handlePublicar = async () => {
       if (!nuevoPost.trim() && !imagenPost) return;
       setEnviandoPost(true);
-      
       const formData = new FormData();
       formData.append('contenido', nuevoPost);
       formData.append('tipo', tipoPost);
       if (imagenPost) formData.append('imagen', imagenPost);
 
       try {
-          // ✅ CORRECCIÓN: No definimos Content-Type manualmente, Axios lo hace automático
-          await api.post('/api/foro/', formData, {
-              headers: { 'Authorization': `Token ${token}` }
-          });
+          await api.post('/api/foro/', formData, { headers: { 'Authorization': `Token ${token}` } });
           enqueueSnackbar("Publicado", { variant: 'success' });
           setNuevoPost(''); setImagenPost(null); setPreviewPost(null); setTipoPost('SOCIAL');
           cargarPosts();
-      } catch (e) { 
-          enqueueSnackbar("Error al publicar", { variant: 'error' }); 
-      } finally { setEnviandoPost(false); }
+      } catch (e) { enqueueSnackbar("Error al publicar", { variant: 'error' }); } 
+      finally { setEnviandoPost(false); }
   };
 
   const borrarPost = async (id) => {
-      if(!confirm("¿Eliminar?")) return;
+      if(!confirm("¿Eliminar publicación?")) return;
       try { await api.delete(`/api/foro/${id}/`); cargarPosts(); } catch(e){}
   };
 
-  // --- Encuestas ---
-  const cargarEncuestas = async () => {
-      try { const res = await api.get('/api/encuestas/'); setEncuestas(res.data.results || res.data); } catch(e){}
-  };
   const votarEncuesta = async (encuestaId, opcionId) => {
-      try { await api.post(`/api/encuestas/${encuestaId}/votar/`, { opcion: opcionId }); enqueueSnackbar("Voto registrado", {variant:'success'}); cargarEncuestas(); } catch(e){ enqueueSnackbar("Error al votar", {variant:'warning'}); }
+      try { 
+          await api.post(`/api/encuestas/${encuestaId}/votar/`, { opcion: opcionId }, { headers: { 'Authorization': `Token ${token}` } }); 
+          enqueueSnackbar("Voto registrado", {variant:'success'}); cargarEncuestas(); 
+      } catch(e){ enqueueSnackbar("Error al votar", {variant:'warning'}); }
   };
+  const cargarEncuestas = async () => { try { const res = await api.get('/api/encuestas/'); setEncuestas(res.data.results || res.data); } catch(e){} };
 
-  // --- Quejas ---
-  const cargarQuejas = async () => {
-      try { const res = await api.get('/api/quejas/'); setQuejas(res.data.results || res.data); } catch(e){}
-  };
+  const cargarQuejas = async () => { try { const res = await api.get('/api/quejas/'); setQuejas(res.data.results || res.data); } catch(e){} };
   const enviarQueja = async () => {
       if(!nuevaQueja.asunto) return;
       const fd = new FormData();
       fd.append('titulo', nuevaQueja.asunto); fd.append('descripcion', nuevaQueja.descripcion);
       if(evidenciaQueja) fd.append('foto', evidenciaQueja);
-      try { await api.post('/api/quejas/', fd); enqueueSnackbar("Reporte enviado", {variant:'success'}); setNuevaQueja({asunto:'', descripcion:''}); setEvidenciaQueja(null); cargarQuejas(); } catch(e){}
+      try { await api.post('/api/quejas/', fd, { headers: { 'Authorization': `Token ${token}` } }); enqueueSnackbar("Reporte enviado", {variant:'success'}); setNuevaQueja({asunto:'', descripcion:''}); setEvidenciaQueja(null); cargarQuejas(); } catch(e){ enqueueSnackbar("Error enviando reporte", {variant:'error'}); }
   };
 
   return (
-    <Container maxWidth="md" sx={{ mt: 2, mb: 10 }}>
-        <Box display="flex" alignItems="center" mb={2} justifyContent="space-between">
-            <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ color: 'text.secondary' }}>Atrás</Button>
-            <Typography variant="h5" fontWeight="900" sx={{ color: '#1976d2' }}>COMUNIDAD</Typography>
-            <Avatar src={sessionUser.avatar} sx={{ width: 40, height: 40 }} />
+    <Box sx={{ bgcolor: '#f0f2f5', minHeight: '100vh', pb: 5 }}>
+        {/* HEADER CON PORTADA */}
+        <Box sx={{ position: 'relative', bgcolor: 'white', mb: 3, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
+            <Box sx={{ 
+                height: { xs: 150, md: 250 }, 
+                background: config.imagen_portada ? `url(${config.imagen_portada})` : 'linear-gradient(90deg, #1976d2 0%, #64b5f6 100%)',
+                backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative'
+            }}>
+                {sessionUser.is_staff && (
+                    <Button component="label" variant="contained" size="small" startIcon={<EditIcon />} sx={{ position: 'absolute', bottom: 10, right: 10, bgcolor: 'white', color: 'black', '&:hover':{bgcolor:'#eee'} }}>
+                        Editar Portada
+                        <input type="file" hidden accept="image/*" onChange={cambiarPortada} />
+                    </Button>
+                )}
+            </Box>
+            <Container maxWidth="md">
+                <Box display="flex" flexDirection={{xs:'column', md:'row'}} alignItems="center" mt={-4} mb={2} px={2}>
+                    <Avatar src={sessionUser.avatar} sx={{ width: 120, height: 120, border: '4px solid white', boxShadow: 2 }} />
+                    <Box ml={{md:3}} mt={{xs:1, md:4}} textAlign={{xs:'center', md:'left'}}>
+                        <Typography variant="h4" fontWeight="bold">{config.titulo_comunidad}</Typography>
+                        <Typography variant="body1" color="text.secondary">Bienvenido, {sessionUser.first_name || 'vecino'}</Typography>
+                    </Box>
+                </Box>
+                <Divider />
+                <Tabs value={tabIndex} onChange={(e, v) => setTabIndex(v)} centered sx={{ '& .MuiTab-root': { fontWeight: 'bold', textTransform: 'none', minHeight: 60 } }}>
+                    <Tab label="Muro Social" icon={<CampaignIcon />} iconPosition="start" />
+                    <Tab label="Encuestas" icon={<PollIcon />} iconPosition="start" />
+                    <Tab label="Reportes y Quejas" icon={<ReportProblemIcon />} iconPosition="start" />
+                </Tabs>
+            </Container>
         </Box>
 
-        <Paper elevation={0} sx={{ borderRadius: 4, mb: 3, border: '1px solid #e0e0e0', overflow:'hidden' }}>
-            <Tabs value={tabIndex} onChange={(e, v) => setTabIndex(v)} variant="fullWidth" textColor="primary" indicatorColor="primary">
-                <Tab icon={<CampaignIcon />} label="Muro" iconPosition="start" />
-                <Tab icon={<PollIcon />} label="Encuestas" iconPosition="start" />
-                <Tab icon={<ReportProblemIcon />} label="Quejas" iconPosition="start" />
-            </Tabs>
-        </Paper>
+        <Container maxWidth="md">
+            {/* VISTA DE MURO SOCIAL */}
+            {tabIndex === 0 && (
+                <Grid container spacing={3}>
+                    {/* CREAR POST */}
+                    <Grid item xs={12}>
+                        <Paper elevation={0} sx={{ p: 2, borderRadius: 3, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
+                            <Box display="flex" gap={2}>
+                                <Avatar src={sessionUser.avatar} />
+                                <Box flexGrow={1}>
+                                    <TextField fullWidth multiline rows={2} placeholder={`¿Qué estás pensando, ${sessionUser.first_name}?`} variant="standard" InputProps={{ disableUnderline: true }} value={nuevoPost} onChange={(e) => setNuevoPost(e.target.value)} sx={{ bgcolor: '#f0f2f5', borderRadius: 4, px: 2, py: 1 }} />
+                                    {previewPost && <Box mt={2} position="relative"><img src={previewPost} alt="Preview" style={{ width: '100%', borderRadius: 8, maxHeight: 300, objectFit: 'cover' }} /><IconButton onClick={() => { setImagenPost(null); setPreviewPost(null); }} sx={{ position: 'absolute', top: 5, right: 5, bgcolor: 'rgba(0,0,0,0.5)', color: 'white' }}><CancelIcon /></IconButton></Box>}
+                                    <Divider sx={{ my: 2 }} />
+                                    <Box display="flex" justifyContent="space-between" alignItems="center">
+                                        <Box display="flex" gap={1}>
+                                            <Tooltip title="Foto"><IconButton color="primary" component="label"><input hidden accept="image/*" type="file" onChange={handleImagenChange} /><AddPhotoAlternateIcon /></IconButton></Tooltip>
+                                            <Chip label="Social" size="small" onClick={()=>setTipoPost('SOCIAL')} color={tipoPost==='SOCIAL'?'primary':'default'} variant={tipoPost==='SOCIAL'?'filled':'outlined'} clickable icon={<ChatBubbleOutlineIcon/>} />
+                                            <Chip label="Venta" size="small" onClick={()=>setTipoPost('VENTA')} color={tipoPost==='VENTA'?'success':'default'} variant={tipoPost==='VENTA'?'filled':'outlined'} clickable icon={<StorefrontIcon/>} />
+                                            <Chip label="Servicio" size="small" onClick={()=>setTipoPost('SERVICIO')} color={tipoPost==='SERVICIO'?'warning':'default'} variant={tipoPost==='SERVICIO'?'filled':'outlined'} clickable icon={<HandymanIcon/>} />
+                                        </Box>
+                                        <Button variant="contained" disableElevation endIcon={enviandoPost ? <CircularProgress size={20} color="inherit"/> : <SendIcon />} onClick={handlePublicar} disabled={enviandoPost || (!nuevoPost && !imagenPost)} sx={{ borderRadius: 5, textTransform: 'none' }}>Publicar</Button>
+                                    </Box>
+                                </Box>
+                            </Box>
+                        </Paper>
+                    </Grid>
 
-        {tabIndex === 0 && (
-            <>
-                <Paper elevation={3} sx={{ p: 2, mb: 4, borderRadius: 3 }}>
-                    <Box display="flex" gap={2}>
-                        <Avatar src={sessionUser.avatar} sx={{ width: 45, height: 45 }} />
-                        <Box flexGrow={1}>
-                            <TextField fullWidth multiline rows={2} placeholder={`Comparte algo, ${sessionUser.first_name || 'vecino'}...`} variant="standard" InputProps={{ disableUnderline: true }} value={nuevoPost} onChange={(e) => setNuevoPost(e.target.value)} />
-                            {previewPost && <Box mt={2}><img src={previewPost} alt="Preview" style={{ width: '100%', borderRadius: 8 }} /><IconButton onClick={() => { setImagenPost(null); setPreviewPost(null); }} sx={{ position: 'absolute', mt: -35, ml: 1, bgcolor: 'white' }}><CancelIcon /></IconButton></Box>}
-                            <Divider sx={{ my: 1.5 }} />
-                            <Grid container alignItems="center" justifyContent="space-between">
-                                <Grid item display="flex" gap={1}>
-                                    <Chip icon={<ChatBubbleOutlineIcon/>} label="Social" size="small" color={tipoPost==='SOCIAL'?'primary':'default'} onClick={()=>setTipoPost('SOCIAL')} clickable />
-                                    <Chip icon={<StorefrontIcon/>} label="Venta" size="small" color={tipoPost==='VENTA'?'success':'default'} onClick={()=>setTipoPost('VENTA')} clickable />
-                                    <Chip icon={<HandymanIcon/>} label="Servicio" size="small" color={tipoPost==='SERVICIO'?'warning':'default'} onClick={()=>setTipoPost('SERVICIO')} clickable />
-                                </Grid>
-                                <Grid item display="flex" gap={1}>
-                                    <IconButton color="primary" component="label"><input hidden accept="image/*" type="file" onChange={handleImagenChange} /><PhotoCamera /></IconButton>
-                                    <Button variant="contained" endIcon={enviandoPost ? <CircularProgress size={20} color="inherit"/> : <SendIcon />} onClick={handlePublicar} disabled={enviandoPost || (!nuevoPost && !imagenPost)} sx={{ borderRadius: 5 }}>Publicar</Button>
-                                </Grid>
-                            </Grid>
-                        </Box>
-                    </Box>
-                </Paper>
+                    {/* LISTA DE POSTS */}
+                    {loadingPosts ? <Grid item xs={12} textAlign="center"><CircularProgress /></Grid> : posts.map(post => (
+                        <Grid item xs={12} key={post.id}>
+                            <Fade in={true}>
+                                <Card sx={{ borderRadius: 3, boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}>
+                                    <CardHeader
+                                        avatar={<Avatar src={post.autor_avatar}>{post.autor_nombre?.[0]}</Avatar>}
+                                        action={<Box>{post.tipo !== 'SOCIAL' && <Chip label={post.tipo} size="small" color={post.tipo === 'VENTA' ? 'success' : 'warning'} sx={{mr:1}} />}{(post.autor === sessionUser.id || sessionUser.is_staff) && <IconButton size="small" onClick={()=>borrarPost(post.id)}><DeleteIcon fontSize="small" /></IconButton>}</Box>}
+                                        title={<Typography fontWeight="bold">{post.autor_nombre}</Typography>}
+                                        subheader={new Date(post.fecha_creacion).toLocaleString('es-MX', {dateStyle: 'medium', timeStyle: 'short'})}
+                                    />
+                                    <CardContent sx={{ py: 0 }}><Typography variant="body1" sx={{whiteSpace:'pre-line', fontSize: '1.05rem'}}>{post.contenido}</Typography></CardContent>
+                                    {post.imagen && <CardMedia component="img" image={post.imagen} sx={{ mt: 2, maxHeight: 500, objectFit: 'contain', bgcolor: '#f5f5f5' }} />}
+                                    <CardActions sx={{ px: 2, py: 1 }}>
+                                        <Button startIcon={<FavoriteBorderIcon />} color="inherit" fullWidth sx={{ textTransform: 'none', color: 'text.secondary' }}>Me gusta</Button>
+                                        <Button startIcon={<ChatBubbleOutlineIcon />} color="inherit" fullWidth sx={{ textTransform: 'none', color: 'text.secondary' }}>Comentar</Button>
+                                    </CardActions>
+                                </Card>
+                            </Fade>
+                        </Grid>
+                    ))}
+                </Grid>
+            )}
 
-                {loadingPosts ? <CircularProgress /> : posts.map(post => (
-                    <Card key={post.id} sx={{ mb: 3, borderRadius: 3 }} elevation={1}>
-                        <CardHeader
-                            avatar={<Avatar src={post.autor_avatar}>{post.autor_nombre?.[0]}</Avatar>}
-                            action={post.tipo !== 'SOCIAL' && <Chip label={post.tipo} size="small" color={post.tipo === 'VENTA' ? 'success' : 'warning'} />}
-                            title={<Typography fontWeight="bold">{post.autor_nombre}</Typography>}
-                            subheader={new Date(post.fecha_creacion).toLocaleString()}
-                        />
-                        <CardContent sx={{ py: 1 }}><Typography sx={{whiteSpace:'pre-line'}}>{post.contenido}</Typography></CardContent>
-                        {post.imagen && <CardMedia component="img" image={post.imagen} sx={{ maxHeight: 500, objectFit: 'cover' }} />}
-                        <CardActions><Button startIcon={<FavoriteBorderIcon />}>Me gusta</Button>{(post.autor===sessionUser.id || sessionUser.is_staff) && <Button color="error" onClick={()=>borrarPost(post.id)}>Borrar</Button>}</CardActions>
-                    </Card>
-                ))}
-            </>
-        )}
+            {/* VISTA ENCUESTAS */}
+            {tabIndex === 1 && (
+                <Box>
+                    {encuestas.map(enc => (
+                        <Card key={enc.id} sx={{ mb: 3, borderRadius: 3, boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }}>
+                            <CardContent>
+                                <Box display="flex" alignItems="center" gap={1} mb={2}>
+                                    <PollIcon color="secondary" />
+                                    <Typography variant="h6" fontWeight="bold">{enc.titulo}</Typography>
+                                </Box>
+                                <Typography variant="body2" color="text.secondary" paragraph>{enc.descripcion}</Typography>
+                                <FormControl component="fieldset" fullWidth>
+                                    <RadioGroup>
+                                        {enc.opciones.map(op => {
+                                            const porcentaje = Math.round((op.votos / (enc.total_votos || 1)) * 100);
+                                            return (
+                                                <Box key={op.id} sx={{ mb: 1.5, position: 'relative', borderRadius: 2, overflow: 'hidden', border: '1px solid #e0e0e0' }}>
+                                                    <Box sx={{ position: 'absolute', top: 0, left: 0, height: '100%', width: `${porcentaje}%`, bgcolor: '#e1f5fe', zIndex: 0, transition: 'width 0.5s' }} />
+                                                    <FormControlLabel value={op.id} control={<Radio onClick={() => votarEncuesta(enc.id, op.id)} />} label={<Box display="flex" justifyContent="space-between" width="100%" sx={{ zIndex: 1, position: 'relative', minWidth: 250 }}><Typography>{op.texto}</Typography><Typography fontWeight="bold">{porcentaje}%</Typography></Box>} sx={{ width: '100%', m: 0, p: 1 }} />
+                                                </Box>
+                                            );
+                                        })}
+                                    </RadioGroup>
+                                </FormControl>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </Box>
+            )}
 
-        {tabIndex === 1 && (
-            <Box>
-                {encuestas.map(enc => (
-                    <Card key={enc.id} sx={{ mb: 3, borderRadius: 3, borderTop: '4px solid #9c27b0' }}>
-                        <CardContent>
-                            <Typography variant="h6" fontWeight="bold">{enc.titulo}</Typography>
-                            <Typography variant="body2" color="text.secondary" paragraph>{enc.descripcion}</Typography>
-                            <FormControl component="fieldset" fullWidth>
-                                <RadioGroup>
-                                    {enc.opciones.map(op => {
-                                        const porcentaje = Math.round((op.votos / (enc.total_votos || 1)) * 100);
-                                        return (
-                                            <Box key={op.id} sx={{ mb: 1, p: 1, border: '1px solid #eee', borderRadius: 2, background: `linear-gradient(90deg, #f3e5f5 ${porcentaje}%, white ${porcentaje}%)` }}>
-                                                <FormControlLabel value={op.id} control={<Radio onClick={() => votarEncuesta(enc.id, op.id)} />} label={`${op.texto} (${porcentaje}%)`} />
-                                            </Box>
-                                        );
-                                    })}
-                                </RadioGroup>
-                            </FormControl>
-                        </CardContent>
-                    </Card>
-                ))}
-            </Box>
-        )}
-
-        {tabIndex === 2 && (
-            <Box>
-                <Paper sx={{ p: 3, borderRadius: 3, borderLeft: '6px solid #d32f2f', mb: 4 }}>
-                    <Typography variant="h6" fontWeight="bold" color="error">Reportar Incidencia</Typography>
-                    <TextField fullWidth label="Asunto" variant="filled" size="small" sx={{ mb: 2 }} value={nuevaQueja.asunto} onChange={e=>setNuevaQueja({...nuevaQueja, asunto:e.target.value})} />
-                    <TextField fullWidth label="Descripción" variant="filled" multiline rows={3} sx={{ mb: 2 }} value={nuevaQueja.descripcion} onChange={e=>setNuevaQueja({...nuevaQueja, descripcion:e.target.value})} />
-                    <Box display="flex" justifyContent="space-between">
-                        <Button component="label" startIcon={<PhotoCamera />}>{evidenciaQueja ? "Foto Lista" : "Foto Evidencia"}<input type="file" hidden accept="image/*" onChange={e=>setEvidenciaQueja(e.target.files[0])} /></Button>
-                        <Button variant="contained" color="error" onClick={enviarQueja}>Enviar</Button>
-                    </Box>
-                </Paper>
-                {quejas.map(q => (<Paper key={q.id} sx={{p:2, mb:2}}><Typography fontWeight="bold">{q.titulo}</Typography><Typography variant="body2">{q.descripcion}</Typography><Chip label={q.estado} size="small" sx={{mt:1}}/></Paper>))}
-            </Box>
-        )}
-    </Container>
+            {/* VISTA QUEJAS */}
+            {tabIndex === 2 && (
+                <Grid container spacing={3}>
+                    <Grid item xs={12} md={4}>
+                         <Paper sx={{ p: 3, borderRadius: 3, bgcolor: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                            <Typography variant="h6" fontWeight="bold" color="error" gutterBottom>Nuevo Reporte</Typography>
+                            <Typography variant="body2" color="text.secondary" mb={2}>Describe la incidencia. Será enviada al administrador.</Typography>
+                            <TextField fullWidth label="Asunto" variant="outlined" size="small" sx={{ mb: 2 }} value={nuevaQueja.asunto} onChange={e=>setNuevaQueja({...nuevaQueja, asunto:e.target.value})} />
+                            <TextField fullWidth label="Descripción" variant="outlined" multiline rows={4} sx={{ mb: 2 }} value={nuevaQueja.descripcion} onChange={e=>setNuevaQueja({...nuevaQueja, descripcion:e.target.value})} />
+                            <Button fullWidth component="label" variant="outlined" startIcon={<PhotoCamera />} sx={{ mb: 2, textTransform: 'none' }}>
+                                {evidenciaQueja ? "Evidencia cargada" : "Adjuntar Foto"}
+                                <input type="file" hidden accept="image/*" onChange={e=>setEvidenciaQueja(e.target.files[0])} />
+                            </Button>
+                            <Button fullWidth variant="contained" color="error" disableElevation onClick={enviarQueja} sx={{ borderRadius: 5 }}>Enviar Reporte</Button>
+                        </Paper>
+                    </Grid>
+                    <Grid item xs={12} md={8}>
+                        <Typography variant="h6" fontWeight="bold" mb={2}>Mis Reportes</Typography>
+                        {quejas.map(q => (
+                            <Paper key={q.id} sx={{ p: 2, mb: 2, borderRadius: 2, borderLeft: q.estado === 'RESUELTO' ? '4px solid #4caf50' : '4px solid #f44336' }}>
+                                <Box display="flex" justifyContent="space-between" mb={1}>
+                                    <Typography fontWeight="bold">{q.titulo}</Typography>
+                                    <Chip label={q.estado} size="small" color={q.estado==='RESUELTO'?'success':(q.estado==='PENDIENTE'?'error':'warning')} />
+                                </Box>
+                                <Typography variant="body2" color="text.secondary">{q.descripcion}</Typography>
+                                <Typography variant="caption" display="block" mt={1} color="text.disabled">{new Date(q.fecha_creacion).toLocaleDateString()}</Typography>
+                            </Paper>
+                        ))}
+                    </Grid>
+                </Grid>
+            )}
+        </Container>
+    </Box>
   );
 }
 export default Comunidad;

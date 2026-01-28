@@ -6,6 +6,9 @@ from django.utils import timezone
 from django.db.models import Q
 from datetime import timedelta 
 
+# Importamos apps para poder buscar el modelo Casa dinámicamente
+from django.apps import apps 
+
 from .models import Visita, Trabajador, AccesoTrabajador, Bitacora, ReporteDiario, MensajeChat
 from .serializers import (
     VisitaSerializer, TrabajadorSerializer, AccesoTrabajadorSerializer, 
@@ -22,7 +25,6 @@ class MensajeChatViewSet(viewsets.ModelViewSet):
         rol = getattr(user, 'rol', '').lower() if getattr(user, 'rol', '') else ''
         es_autoridad = user.is_staff or user.is_superuser or 'guardia' in rol or 'admin' in rol
 
-        # Ver archivados o activos
         ver_archivados = self.request.query_params.get('archivados') == 'true'
         queryset = MensajeChat.objects.filter(archivado=ver_archivados).order_by('fecha')
 
@@ -60,30 +62,26 @@ class MensajeChatViewSet(viewsets.ModelViewSet):
         mensaje.save()
         return Response({'status': 'Mensaje restaurado'})
 
-# --- 2. REPORTE DIARIO (BITÁCORA) ---
+# --- 2. REPORTE DIARIO ---
 class ReporteDiarioViewSet(viewsets.ModelViewSet):
     queryset = ReporteDiario.objects.all().order_by('-fecha')
     serializer_class = ReporteDiarioSerializer
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        
         fecha_param = self.request.query_params.get('fecha')
-        
         if fecha_param:
-            # Si piden una fecha específica (Historial)
             queryset = queryset.filter(fecha__date=fecha_param)
+            return queryset
         else:
-            # ✅ POR DEFECTO: Solo muestra lo de HOY (Turno actual)
             hoy = timezone.now().date()
             queryset = queryset.filter(fecha__date=hoy)
-            
-        return queryset.order_by('-fecha') # Lo más nuevo arriba
+        return queryset.order_by('-fecha')
 
     def perform_create(self, serializer):
         serializer.save(guardia=self.request.user)
 
-# --- 3. ACCESOS Y VISITAS ---
+# --- 3. ACCESOS Y VISITAS (AQUI ESTA LA CORRECCION) ---
 class AccesoTrabajadorViewSet(viewsets.ModelViewSet):
     queryset = AccesoTrabajador.objects.all()
     serializer_class = AccesoTrabajadorSerializer
@@ -108,7 +106,31 @@ class AccesoTrabajadorViewSet(viewsets.ModelViewSet):
 class VisitaViewSet(viewsets.ModelViewSet):
     queryset = Visita.objects.all().order_by('-id')
     serializer_class = VisitaSerializer
-    def perform_create(self, serializer): serializer.save(creado_por=self.request.user)
+
+    def perform_create(self, serializer): 
+        # ✅ LÓGICA INTELIGENTE DE ASIGNACIÓN DE CASA
+        user = self.request.user
+        casa_obj = None
+
+        # 1. Opción A: El usuario tiene el campo 'casa' directo (Tu caso en la foto)
+        if hasattr(user, 'casa') and user.casa:
+            casa_obj = user.casa
+        
+        # 2. Opción B: El usuario es 'propietario' en la tabla Casa (Configuración estándar)
+        if not casa_obj:
+            try:
+                Casa = apps.get_model('inmuebles', 'Casa')
+                casa_obj = Casa.objects.filter(propietario=user).first()
+            except Exception:
+                pass
+
+        # 3. Guardamos con lo que hayamos encontrado
+        if casa_obj:
+            serializer.save(creado_por=user, casa=casa_obj)
+        else:
+            # Si es admin o guardia creando visita, puede que la casa venga en el request
+            serializer.save(creado_por=user)
+    
     @action(detail=False, methods=['get'])
     def activas(self, request):
         activas = Visita.objects.filter(fecha_llegada_real__isnull=False, fecha_salida_real__isnull=True).order_by('-fecha_llegada_real')
@@ -118,9 +140,16 @@ class TrabajadorViewSet(viewsets.ModelViewSet):
     queryset = Trabajador.objects.all()
     serializer_class = TrabajadorSerializer
     def perform_create(self, serializer):
+        # Misma lógica para trabajadores
+        user = self.request.user
         casa_id = self.request.data.get('casa')
-        if casa_id: serializer.save(casa_id=casa_id)
-        else: serializer.save()
+        
+        if casa_id: 
+            serializer.save(casa_id=casa_id)
+        elif hasattr(user, 'casa') and user.casa:
+            serializer.save(casa=user.casa)
+        else:
+            serializer.save()
 
 class BitacoraViewSet(viewsets.ModelViewSet):
     queryset = Bitacora.objects.all()

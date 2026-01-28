@@ -39,7 +39,10 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
+    # Apps de Terceros
+    'cloudinary_storage', # <--- AGREGAR ESTO ARRIBA
+    'cloudinary',         # <--- AGREGAR ESTO
+    'rest_framework',
     # Apps de Terceros
     'rest_framework',
     'rest_framework.authtoken',
@@ -169,5 +172,13 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50
 }
+# Configuración de Cloudinary (Imágenes Persistentes)
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
+}
 
+# Decirle a Django que use Cloudinary para los archivos media (fotos subidas)
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

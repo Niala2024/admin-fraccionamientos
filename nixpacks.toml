@@ -1,13 +1,12 @@
-# nixpacks.toml - ESTRATEGIA MANUAL
+# nixpacks.toml - CORREGIDO
 
-# ✅ CAMBIO CLAVE: Quitamos "node" de aquí para que no choque con tu lista manual
-providers = ["python"]
+providers = ["python", "node"]
 
 [phases.setup]
-# Ahora sí, dejamos "nodejs" aquí porque es la ÚNICA fuente de instalación
 nixPkgs = [
     "python3",
     "nodejs",
+    "npm",
     "cairo",
     "pango",
     "gdk-pixbuf",
@@ -16,13 +15,19 @@ nixPkgs = [
 ]
 
 [phases.build]
+# FASE DE CONSTRUCCIÓN: Solo archivos. SIN conexión a BD.
+# 1. Construir React
+# 2. Instalar Python
+# 3. Recolectar estáticos (sin input)
 cmds = [
     "cd frontend && npm install && npm run build",
     "pip install -r requirements.txt",
-    "python manage.py collectstatic --noinput",
-    "python manage.py migrate",
-    "python manage.py createsuperuser --noinput || echo 'Admin existe'"
+    "python manage.py collectstatic --noinput"
 ]
 
 [start]
-cmd = "gunicorn core.wsgi:application --bind 0.0.0.0:$PORT"
+# FASE DE ARRANQUE: Aquí SÍ hay acceso a la Base de Datos.
+# 1. Migrar BD
+# 2. Crear superusuario (si falla, ignoramos con || echo)
+# 3. Iniciar Gunicorn
+cmd = "python manage.py migrate && python manage.py createsuperuser --noinput || echo 'Admin verificado' && gunicorn core.wsgi:application --bind 0.0.0.0:$PORT"

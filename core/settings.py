@@ -33,14 +33,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
     # Apps de Terceros
     'cloudinary_storage',
     'cloudinary',
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
-
     # Tus Apps
     'usuarios.apps.UsuariosConfig',
     'inmuebles',
@@ -68,7 +66,7 @@ TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         # ✅ RESTAURADO: Usamos la ruta absoluta que te funcionaba
-        'DIRS': ['/app/frontend/dist'],
+        'DIRS': [os.path.join(BASE_DIR, 'frontend/dist')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -111,7 +109,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 # ✅ RESTAURADO: Usamos la ruta absoluta que te funcionaba
 STATICFILES_DIRS = [
-    '/app/frontend/dist'
+    os.path.join(BASE_DIR, 'frontend/dist'),
 ]
 
 # ✅ SEGURIDAD: Usamos este storage para que no falle si falta un archivo pequeño
@@ -156,3 +154,4 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50
 }
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

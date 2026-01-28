@@ -2,8 +2,8 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
-from rest_framework.routers import DefaultRouter
 from django.views.generic import TemplateView
+from rest_framework.routers import DefaultRouter
 
 # --- TUS IMPORTS ---
 from usuarios.views import UsuarioViewSet, CustomAuthToken
@@ -41,18 +41,18 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     
-    # ✅ RUTA CORREGIDA: Coincide con lo que busca tu Login.jsx (/api/api-token-auth/)
+    # Rutas API Específicas
     path('api/api-token-auth/', CustomAuthToken.as_view(), name='api_token_auth'),
-    
     path('api/generar-reporte/', ReporteFinancieroView.as_view(), name='generar_reporte'),
     path('api/reporte-accesos/', ReporteAccesosView.as_view(), name='reporte_accesos'),
 ]
 
-# Configuración de Imágenes
+# Servir archivos media en desarrollo (opcional)
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-# "Atrapa-todo" para React
+# ✅ RUTA MÁGICA (CATCH-ALL)
+# Esto debe ir AL FINAL. Si la URL no es /api ni /admin, entrega React.
 urlpatterns += [
-    re_path(r'^.*$', TemplateView.as_view(template_name='index.html')),
+    re_path(r'^.*$', TemplateView.as_view(template_name='index.html'))
 ]

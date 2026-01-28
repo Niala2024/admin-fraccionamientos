@@ -1,9 +1,10 @@
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny 
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.core.mail import send_mail
 from django.conf import settings
 from django.apps import apps 
@@ -30,7 +31,8 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=500)
 
-class CustomAuthToken(ObtainAuthToken):
+# ✅ CAMBIO 1: Renombrado de CustomAuthToken a LoginView para coincidir con urls.py
+class LoginView(ObtainAuthToken):
     # Permisos abiertos para poder loguearse
     authentication_classes = []  
     permission_classes = [AllowAny] 
@@ -75,11 +77,16 @@ class CustomAuthToken(ObtainAuthToken):
                 pass
 
         # 4. Respuesta Final
-        # ✅ CAMBIO CLAVE: Usamos 'UsuarioSerializer(user).data' en lugar de construirlo a mano.
-        # Esto asegura que se envíen: telefono, nombre completo, rol, etc.
         return Response({
             'token': token.key,
             'user': UsuarioSerializer(user).data, 
-            'casa': datos_casa, # Objeto con detalles (id, calle, saldo)
-            'casa_nombre': casa_str # Texto simple para mostrar
+            'casa': datos_casa, 
+            'casa_nombre': casa_str 
         })
+
+# ✅ CAMBIO 2: Agregada PerfilView que faltaba
+class PerfilView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        return Response(UsuarioSerializer(request.user).data)

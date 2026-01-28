@@ -52,3 +52,4 @@ else:
         path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
     ]
 # FIN DEL ARCHIVO - VERSION CORREGIDA
+# --- VERSION CORREGIDA FINAL ---

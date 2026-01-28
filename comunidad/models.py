@@ -25,11 +25,20 @@ class Comentario(models.Model):
     fecha_creacion = models.DateTimeField(default=timezone.now)
 
 class Encuesta(models.Model):
+    TIPOS_GRAFICO = [
+        ('BARRA', 'Gráfico de Barras'),
+        ('PASTEL', 'Gráfico de Pastel'),
+    ]
+    autor = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True) # Nuevo
     titulo = models.CharField(max_length=200)
     descripcion = models.TextField(blank=True)
+    tipo_grafico = models.CharField(max_length=20, choices=TIPOS_GRAFICO, default='BARRA') # Nuevo
     fecha_inicio = models.DateTimeField(default=timezone.now)
     fecha_fin = models.DateTimeField(null=True, blank=True)
     activa = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.titulo
 
 class OpcionEncuesta(models.Model):
     encuesta = models.ForeignKey(Encuesta, related_name='opciones', on_delete=models.CASCADE)

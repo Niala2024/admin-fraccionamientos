@@ -49,15 +49,20 @@ class ConfiguracionComunidadViewSet(viewsets.ViewSet):
 class EncuestaViewSet(viewsets.ModelViewSet):
     queryset = Encuesta.objects.filter(activa=True).order_by('-fecha_inicio')
     serializer_class = EncuestaSerializer
+    # Permitimos crear a cualquier usuario autenticado
     permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(autor=self.request.user)
 
     @action(detail=True, methods=['post'])
     def votar(self, request, pk=None):
+        # ... (código de votar igual que antes) ...
         encuesta = self.get_object()
         opcion_id = request.data.get('opcion')
         
         if VotoUsuario.objects.filter(usuario=request.user, encuesta=encuesta).exists():
-            return Response({'error': 'Ya votaste'}, status=400)
+            return Response({'error': 'Ya votaste en esta encuesta'}, status=400)
 
         try:
             opcion = OpcionEncuesta.objects.get(id=opcion_id, encuesta=encuesta)

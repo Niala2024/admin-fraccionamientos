@@ -10,6 +10,7 @@ from django.conf import settings
 from django.apps import apps 
 
 from .models import Usuario
+# ✅ CORRECCIÓN: Solo importamos UsuarioSerializer (que seguro existe)
 from .serializers import UsuarioSerializer
 from inmuebles.models import Casa
 
@@ -31,26 +32,19 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=500)
 
-# ✅ CAMBIO 1: Renombrado de CustomAuthToken a LoginView para coincidir con urls.py
 class LoginView(ObtainAuthToken):
-    # Permisos abiertos para poder loguearse
     authentication_classes = []  
     permission_classes = [AllowAny] 
 
     def post(self, request, *args, **kwargs):
-        # 1. Validar credenciales
         serializer = self.serializer_class(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data['user']
-        
-        # 2. Generar Token
         token, created = Token.objects.get_or_create(user=user)
 
-        # 3. Lógica Robusta para encontrar la Casa
         datos_casa = None
         casa_str = "Sin Asignar"
 
-        # Opción A: Buscar si el usuario tiene la casa en su perfil (Relación directa)
         if hasattr(user, 'casa') and user.casa:
             casa_obj = user.casa
             datos_casa = {
@@ -61,7 +55,6 @@ class LoginView(ObtainAuthToken):
             }
             casa_str = str(casa_obj)
 
-        # Opción B: Si no funcionó la A, buscar si es Propietario en la tabla Casa
         if not datos_casa:
             try:
                 casa_obj = Casa.objects.filter(propietario=user).first()
@@ -76,7 +69,6 @@ class LoginView(ObtainAuthToken):
             except Exception:
                 pass
 
-        # 4. Respuesta Final
         return Response({
             'token': token.key,
             'user': UsuarioSerializer(user).data, 
@@ -84,9 +76,9 @@ class LoginView(ObtainAuthToken):
             'casa_nombre': casa_str 
         })
 
-# ✅ CAMBIO 2: Agregada PerfilView que faltaba
 class PerfilView(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
+        # Usamos UsuarioSerializer que sí existe
         return Response(UsuarioSerializer(request.user).data)

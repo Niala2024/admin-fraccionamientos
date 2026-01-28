@@ -1,9 +1,20 @@
 from rest_framework import serializers
-from .models import Publicacion, Encuesta, OpcionEncuesta, Queja
+from .models import (
+    Publicacion, Comentario, Encuesta, OpcionEncuesta, 
+    Queja, Aviso, ServicioExterno, CalificacionServicio
+)
+
+class ComentarioSerializer(serializers.ModelSerializer):
+    autor_nombre = serializers.CharField(source='autor.username', read_only=True)
+    class Meta:
+        model = Comentario
+        fields = '__all__'
+        read_only_fields = ['autor', 'fecha_creacion']
 
 class PublicacionSerializer(serializers.ModelSerializer):
     autor_nombre = serializers.CharField(source='autor.username', read_only=True)
     autor_avatar = serializers.SerializerMethodField()
+    comentarios = ComentarioSerializer(many=True, read_only=True)
     
     class Meta:
         model = Publicacion
@@ -11,7 +22,9 @@ class PublicacionSerializer(serializers.ModelSerializer):
         read_only_fields = ['autor', 'fecha_creacion']
 
     def get_autor_avatar(self, obj):
-        return obj.autor.avatar.url if obj.autor.avatar else None
+        if hasattr(obj.autor, 'avatar') and obj.autor.avatar:
+            return obj.autor.avatar.url
+        return None
 
 class OpcionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -34,3 +47,19 @@ class QuejaSerializer(serializers.ModelSerializer):
         model = Queja
         fields = '__all__'
         read_only_fields = ['usuario', 'estado', 'fecha_creacion']
+
+class AvisoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Aviso
+        fields = '__all__'
+
+class CalificacionServicioSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CalificacionServicio
+        fields = '__all__'
+
+class ServicioExternoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ServicioExterno
+        fields = '__all__'
+        read_only_fields = ['creado_por', 'fecha_registro']

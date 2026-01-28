@@ -53,3 +53,4 @@ else:
     urlpatterns += [
         path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
     ]
+    # Configuración actualizada

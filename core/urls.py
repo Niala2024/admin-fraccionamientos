@@ -52,3 +52,4 @@ else:
     urlpatterns += [
         path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
     ]
+    # FORZAR ACTUALIZACION DE URLS

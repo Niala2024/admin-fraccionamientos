@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.generic import TemplateView
+from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
 
 # --- TUS IMPORTS (Igual que en tu respaldo) ---
@@ -47,6 +47,7 @@ urlpatterns = [
     path('api/api-token-auth/', CustomAuthToken.as_view(), name='api_token_auth'),
     path('api/generar-reporte/', ReporteFinancieroView.as_view(), name='generar_reporte'),
     path('api/reporte-accesos/', ReporteAccesosView.as_view(), name='reporte_accesos'),
+    path('favicon.ico', RedirectView.as_view(url='/static/favicon.ico', permanent=True)),
 ]
 
 if settings.DEBUG:

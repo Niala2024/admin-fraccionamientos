@@ -41,7 +41,9 @@ router.register(r'config-comunidad', ConfiguracionComunidadViewSet, basename='co
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
-    
+    path('api/', include(router.urls)),
+    path('api/login/', LoginView.as_view(), name='login'),
+    path('api/perfil/', PerfilView.as_view(), name='perfil'),
     path('api/api-token-auth/', CustomAuthToken.as_view(), name='api_token_auth'),
     path('api/generar-reporte/', ReporteFinancieroView.as_view(), name='generar_reporte'),
     path('api/reporte-accesos/', ReporteAccesosView.as_view(), name='reporte_accesos'),

@@ -7,6 +7,8 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import LoginIcon from '@mui/icons-material/Login';
 import { useNavigate } from 'react-router-dom';
+
+// Asegúrate de que la ruta a tu api sea correcta
 import api from '../api/axiosConfig'; 
 
 function Login() {
@@ -31,42 +33,51 @@ function Login() {
     setError('');
 
     try {
+      // Petición al backend
       const res = await api.post('/api/api-token-auth/', credentials);
-      const { token, user, casa } = res.data;
+      
+      // Desestructuramos la respuesta del backend (que arreglamos en views.py)
+      const { token, user, casa, casa_nombre } = res.data;
 
-      // 1. Guardar Sesión
-      localStorage.clear();
+      // 🛑 PASO CRÍTICO: Guardar en LocalStorage para que no salga "undefined"
       localStorage.setItem('token', token);
       
-      if (user) localStorage.setItem('user_data', JSON.stringify(user));
-      if (casa) localStorage.setItem('session_casa', JSON.stringify(casa));
-
-      // 2. LÓGICA DE REDIRECCIÓN (CORREGIDA)
-      const rol = user.rol ? user.rol.toLowerCase() : '';
-      const esAdmin = user.is_superuser || user.is_staff || rol.includes('admin');
+      // Guardamos el objeto user completo (que incluye el id)
+      localStorage.setItem('user_data', JSON.stringify(user));
       
-      // Detectamos si es personal de seguridad
-      const esSeguridad = rol.includes('guardia') || rol.includes('vigilante') || rol.includes('seguridad');
+      // Guardamos el rol por si se necesita para rutas protegidas
+      if (user.rol) localStorage.setItem('rol', user.rol);
+      
+      // Guardamos datos de la casa si existen
+      if (casa) {
+        localStorage.setItem('casa_data', JSON.stringify(casa));
+      }
 
-      if (esAdmin) {
-          // Admin General -> Panel Administrativo
-          navigate('/admin-panel');
-      } else if (esSeguridad) {
-          // ✅ CORRECCIÓN: Los guardias van a la CASETA (Operativo), no al C5 (Monitoreo)
-          navigate('/caseta'); 
+      // Configurar header por defecto para futuras peticiones
+      api.defaults.headers.common['Authorization'] = `Token ${token}`;
+
+      // Redirección basada en el rol
+      const rol = user.rol ? user.rol.toLowerCase() : '';
+      if (rol.includes('admin') || user.is_staff) {
+        navigate('/admin-panel');
+      } else if (rol.includes('guardia')) {
+        navigate('/caseta');
       } else {
-          // Residentes -> Dashboard de Vecino
-          navigate('/dashboard');
+        navigate('/dashboard');
       }
 
     } catch (err) {
-      console.error("Error en Login:", err);
-      if (!err.response) {
+      console.error("Error Login:", err);
+      if (err.response) {
+        if (err.response.status === 400) {
+            setError('Credenciales incorrectas. Intenta de nuevo.');
+        } else {
+            setError(`Error del servidor: ${err.response.status}`);
+        }
+      } else if (err.request) {
         setError('No se pudo conectar con el servidor. Revisa tu internet.');
-      } else if (err.response.status === 400 || err.response.status === 403) {
-        setError('Usuario o contraseña incorrectos.');
       } else {
-        setError('Ocurrió un error inesperado. Inténtalo más tarde.');
+        setError('Error desconocido al iniciar sesión.');
       }
     } finally {
       setLoading(false);
@@ -74,19 +85,24 @@ function Login() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: '#eceff1' }}>
+    <Box 
+      sx={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        bgcolor: '#f5f5f5',
+        backgroundImage: 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)'
+      }}
+    >
       <Container maxWidth="xs">
-        <Paper elevation={10} sx={{ p: 4, borderRadius: 3, textAlign: 'center' }}>
-          <Box sx={{ mb: 3 }}>
-            <img 
-              src="/logo.png" 
-              alt="Logo" 
-              style={{ height: 70, marginBottom: 10, objectFit: 'contain' }} 
-              onError={(e) => e.target.style.display = 'none'} 
-            />
-            <Typography variant="h5" fontWeight="bold" color="primary">Panel de Acceso</Typography>
-            <Typography variant="body2" color="text.secondary">Gestión de Fraccionamientos</Typography>
-          </Box>
+        <Paper elevation={10} sx={{ p: 4, borderRadius: 3, textAlign: 'center', bgcolor: 'rgba(255, 255, 255, 0.95)' }}>
+          <Typography variant="h4" component="h1" fontWeight="bold" color="primary" gutterBottom>
+            Bienvenido
+          </Typography>
+          <Typography variant="body2" color="textSecondary" mb={3}>
+            Sistema de Control de Acceso
+          </Typography>
 
           <form onSubmit={handleLogin}>
             <TextField 
@@ -94,10 +110,10 @@ function Login() {
               label="Usuario" 
               name="username" 
               margin="normal" 
-              variant="outlined"
+              variant="outlined" 
               value={credentials.username} 
               onChange={handleChange} 
-              disabled={loading} 
+              disabled={loading}
               autoFocus
             />
             <TextField 
@@ -134,7 +150,7 @@ function Login() {
               type="submit" 
               disabled={loading} 
               startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <LoginIcon />} 
-              sx={{ mt: 4, mb: 1, py: 1.5, borderRadius: 2 }}
+              sx={{ mt: 4, mb: 1, py: 1.5, borderRadius: 2, fontWeight: 'bold' }}
             >
               {loading ? 'Validando...' : 'Entrar al Sistema'}
             </Button>

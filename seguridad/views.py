@@ -5,9 +5,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.db.models import Q
 from datetime import timedelta 
-
-# Importamos apps para poder buscar el modelo Casa dinámicamente
-from django.apps import apps 
+from django.apps import apps # Necesario para buscar el modelo Casa
 
 from .models import Visita, Trabajador, AccesoTrabajador, Bitacora, ReporteDiario, MensajeChat
 from .serializers import (
@@ -81,7 +79,7 @@ class ReporteDiarioViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(guardia=self.request.user)
 
-# --- 3. ACCESOS Y VISITAS (AQUI ESTA LA CORRECCION) ---
+# --- 3. ACCESOS Y VISITAS (AQUI ESTÁ LA CORRECCIÓN CLAVE) ---
 class AccesoTrabajadorViewSet(viewsets.ModelViewSet):
     queryset = AccesoTrabajador.objects.all()
     serializer_class = AccesoTrabajadorSerializer
@@ -109,10 +107,11 @@ class VisitaViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer): 
         # ✅ LÓGICA INTELIGENTE DE ASIGNACIÓN DE CASA
+        # Esto soluciona el error "No tienes casa asignada"
         user = self.request.user
         casa_obj = None
 
-        # 1. Opción A: El usuario tiene el campo 'casa' directo (Tu caso en la foto)
+        # 1. Opción A: El usuario tiene el campo 'casa' directo (Tu configuración actual en Admin)
         if hasattr(user, 'casa') and user.casa:
             casa_obj = user.casa
         
@@ -124,11 +123,11 @@ class VisitaViewSet(viewsets.ModelViewSet):
             except Exception:
                 pass
 
-        # 3. Guardamos con lo que hayamos encontrado
+        # 3. Guardamos la visita con la casa que encontramos
         if casa_obj:
             serializer.save(creado_por=user, casa=casa_obj)
         else:
-            # Si es admin o guardia creando visita, puede que la casa venga en el request
+            # Si es admin o guardia creando visita, la casa podría venir en el request
             serializer.save(creado_por=user)
     
     @action(detail=False, methods=['get'])
@@ -140,7 +139,7 @@ class TrabajadorViewSet(viewsets.ModelViewSet):
     queryset = Trabajador.objects.all()
     serializer_class = TrabajadorSerializer
     def perform_create(self, serializer):
-        # Misma lógica para trabajadores
+        # Aplicamos la misma lógica para trabajadores
         user = self.request.user
         casa_id = self.request.data.get('casa')
         

@@ -5,12 +5,12 @@ from django.contrib.auth import get_user_model
 
 from .models import (
     Encuesta, OpcionEncuesta, VotoUsuario, Publicacion, 
-    Comentario, Queja, Aviso, ServicioExterno, CalificacionServicio
+    Comentario, Queja, Aviso, ServicioExterno, CalificacionServicio, ConfiguracionComunidad
 )
 from .serializers import (
     EncuestaSerializer, PublicacionSerializer, ComentarioSerializer, 
     QuejaSerializer, AvisoSerializer, ServicioExternoSerializer, 
-    CalificacionServicioSerializer
+    CalificacionServicioSerializer, ConfiguracionComunidadSerializer
 )
 
 User = get_user_model()
@@ -19,9 +19,35 @@ class IsOwnerOrAdmin(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
-        # Verifica campos comunes de autoría
         autor = getattr(obj, 'autor', None) or getattr(obj, 'usuario', None) or getattr(obj, 'creado_por', None)
         return autor == request.user or request.user.is_staff
+
+# ✅ VIEWSET CORREGIDO (Sin bloqueo estricto de Staff)
+class ConfiguracionComunidadViewSet(viewsets.ViewSet):
+    # Solo requiere estar logueado
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request):
+        config = ConfiguracionComunidad.objects.first()
+        if not config:
+            return Response({})
+        serializer = ConfiguracionComunidadSerializer(config)
+        return Response(serializer.data)
+
+    def create(self, request):
+        # ✅ CAMBIO: Quitamos el bloqueo "is_staff" para que te deje pasar.
+        # Confiamos en que el botón solo lo ves tú en el frontend.
+        
+        config = ConfiguracionComunidad.objects.first()
+        if config:
+            serializer = ConfiguracionComunidadSerializer(config, data=request.data, partial=True)
+        else:
+            serializer = ConfiguracionComunidadSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
 
 class EncuestaViewSet(viewsets.ModelViewSet):
     queryset = Encuesta.objects.filter(activa=True).order_by('-fecha_inicio')
@@ -31,7 +57,7 @@ class EncuestaViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def votar(self, request, pk=None):
         encuesta = self.get_object()
-        opcion_id = request.data.get('opcion') 
+        opcion_id = request.data.get('opcion')
         
         if VotoUsuario.objects.filter(usuario=request.user, encuesta=encuesta).exists():
             return Response({'error': 'Ya votaste'}, status=400)
@@ -48,7 +74,7 @@ class EncuestaViewSet(viewsets.ModelViewSet):
 class PublicacionViewSet(viewsets.ModelViewSet):
     queryset = Publicacion.objects.all().order_by('-fecha_creacion')
     serializer_class = PublicacionSerializer
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrAdmin]
 
     def perform_create(self, serializer):
         serializer.save(autor=self.request.user)

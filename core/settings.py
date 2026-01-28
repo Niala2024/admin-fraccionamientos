@@ -38,17 +38,18 @@ INSTALLED_APPS = [
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
+    
+    # ✅ CLOUDINARY (Debe ir antes de staticfiles)
+    'cloudinary_storage',
     'django.contrib.staticfiles',
-    # Apps de Terceros
-    'cloudinary_storage', # <--- AGREGAR ESTO ARRIBA
-    'cloudinary',         # <--- AGREGAR ESTO
-    'rest_framework',
-    # Apps de Terceros
+    'cloudinary',
+
+    # ✅ APPS DE TERCEROS (Sin duplicados)
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
 
-    # Tus Apps
+    # ✅ TUS APPS
     'usuarios.apps.UsuariosConfig',
     'inmuebles',
     'seguridad',
@@ -112,13 +113,23 @@ TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_TZ = True
 
-# --- 6. ARCHIVOS ESTÁTICOS ---
+# --- 6. ARCHIVOS ESTÁTICOS Y MEDIA ---
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = ['/app/frontend/dist']
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Configuración de Cloudinary (Imágenes Persistentes)
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
+}
+
+# Decirle a Django que use Cloudinary para los archivos media (fotos subidas)
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 # --- 7. CONFIGURACIÓN SMTP2GO ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -132,16 +143,14 @@ DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
 
 # --- 8. SEGURIDAD CORS Y CSRF (HARDENING) ---
 
-# 🛑 Ya no permitimos "todos los orígenes". Solo tu dominio real.
 CORS_ALLOW_ALL_ORIGINS = False
 
 CORS_ALLOWED_ORIGINS = [
     "https://admin-fraccionamientos-production.up.railway.app",
-    "http://localhost:5173", # Útil si sigues desarrollando en local
+    "http://localhost:5173", 
     "http://127.0.0.1:5173"
 ]
 
-# Lista de confianza para evitar error 403 en Forms/Login
 CSRF_TRUSTED_ORIGINS = [
     'https://admin-fraccionamientos-production.up.railway.app'
 ]
@@ -161,24 +170,12 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
-        # SessionAuthentication DESACTIVADA para evitar conflictos CSRF
     ],
-    # 🔒 CAMBIO DE SEGURIDAD FINAL:
-    # Por defecto, TODO requiere estar logueado.
-    # (El Login funciona porque en views.py le pusimos AllowAny explícitamente).
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated', 
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50
 }
-# Configuración de Cloudinary (Imágenes Persistentes)
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
-    'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
-    'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
-}
 
-# Decirle a Django que use Cloudinary para los archivos media (fotos subidas)
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

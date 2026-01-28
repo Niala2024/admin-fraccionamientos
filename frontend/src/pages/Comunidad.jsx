@@ -14,7 +14,7 @@ import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
 import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import EditIcon from '@mui/icons-material/Edit';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'; // Usamos este icono para volver
 import DeleteIcon from '@mui/icons-material/Delete';
 import StorefrontIcon from '@mui/icons-material/Storefront'; 
 import HandymanIcon from '@mui/icons-material/Handyman'; 
@@ -23,6 +23,7 @@ import PollIcon from '@mui/icons-material/Poll';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem'; 
 import CancelIcon from '@mui/icons-material/Cancel';
 import AddPhotoAlternateIcon from '@mui/icons-material/AddPhotoAlternate';
+import DashboardIcon from '@mui/icons-material/Dashboard'; // Nuevo icono para el botón
 
 import api from '../api/axiosConfig'; 
 
@@ -55,6 +56,17 @@ function Comunidad() {
     cargarConfiguracion();
     cargarDatos();
   }, [tabIndex]);
+
+  // ✅ NUEVA LÓGICA DE RETORNO INTELIGENTE
+  const handleVolver = () => {
+      // Si es Staff (Admin) va al Dashboard general
+      if (sessionUser.is_staff) {
+          navigate('/dashboard');
+      } else {
+          // Si es Residente va a su Perfil (o podrías poner '/caseta' si prefieres)
+          navigate('/perfil');
+      }
+  };
 
   const cargarDatos = () => {
       if (tabIndex === 0) cargarPosts();
@@ -140,6 +152,25 @@ function Comunidad() {
                 background: config.imagen_portada ? `url(${config.imagen_portada})` : 'linear-gradient(90deg, #1976d2 0%, #64b5f6 100%)',
                 backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative'
             }}>
+                {/* BOTÓN DE VOLVER AL PANEL (INTELIGENTE) */}
+                <Button 
+                    onClick={handleVolver}
+                    startIcon={<DashboardIcon />}
+                    variant="contained"
+                    sx={{ 
+                        position: 'absolute', 
+                        top: 20, 
+                        left: 20, 
+                        bgcolor: 'rgba(255,255,255,0.9)', 
+                        color: '#1976d2',
+                        fontWeight: 'bold',
+                        '&:hover': { bgcolor: '#fff' },
+                        boxShadow: 3
+                    }}
+                >
+                    {sessionUser.is_staff ? 'Panel Admin' : 'Mi Panel'}
+                </Button>
+
                 {sessionUser.is_staff && (
                     <Button component="label" variant="contained" size="small" startIcon={<EditIcon />} sx={{ position: 'absolute', bottom: 10, right: 10, bgcolor: 'white', color: 'black', '&:hover':{bgcolor:'#eee'} }}>
                         Editar Portada

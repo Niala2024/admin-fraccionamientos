@@ -32,6 +32,7 @@ import ArchiveIcon from '@mui/icons-material/Archive';
 import HistoryIcon from '@mui/icons-material/History';
 import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import VideocamIcon from '@mui/icons-material/Videocam';
+import InventoryIcon from '@mui/icons-material/Inventory'; // Se agregó este icono faltante
 
 import api from '../api/axiosConfig';
 
@@ -68,6 +69,20 @@ function Caseta() {
   const { enqueueSnackbar } = useSnackbar();
   const chatBottomRef = useRef(null);
   
+  // 🛑 CORRECCIÓN DE SESIÓN 🛑
+  // Recuperamos los datos del localStorage con las claves correctas ('user_data')
+  const token = localStorage.getItem('token');
+  const sessionUser = JSON.parse(localStorage.getItem('user_data') || '{}');
+
+  useEffect(() => {
+    // Si no hay token o no es guardia/admin, sacar
+    if (!token) { navigate('/'); return; }
+    const rol = (sessionUser.rol || '').toLowerCase();
+    if (!rol.includes('guardia') && !rol.includes('admin') && !sessionUser.is_superuser) {
+        navigate('/dashboard'); 
+    }
+  }, [navigate, token, sessionUser]);
+
   const [reloj, setReloj] = useState(new Date());
   const [tabActionIndex, setTabActionIndex] = useState(0); 
   const [genteAdentro, setGenteAdentro] = useState([]);
@@ -82,7 +97,7 @@ function Caseta() {
 
   const [formManual, setFormManual] = useState({ nombre: '', destino: '', tipo: 'Visita', placas: '' });
   
-  // ✅ ESTADOS PARA BITÁCORA CON ARCHIVOS
+  // Estados para Bitácora y Scanner
   const [incidente, setIncidente] = useState('');
   const [archivoFoto, setArchivoFoto] = useState(null);
   const [archivoVideo, setArchivoVideo] = useState(null);
@@ -90,6 +105,7 @@ function Caseta() {
   const [openHistorial, setOpenHistorial] = useState(false);
   const [fechaHistorial, setFechaHistorial] = useState('');
   const [listaHistorial, setListaHistorial] = useState([]);
+  const scannerRef = useRef(null);
 
   useEffect(() => {
     const timer = setInterval(() => setReloj(new Date()), 1000);
@@ -102,6 +118,70 @@ function Caseta() {
     }, 5000);
     return () => { clearInterval(timer); clearInterval(dataInterval); };
   }, [chatActivo, verArchivados]);
+
+  // ✅ ACTIVAR ESCÁNER QR
+  useEffect(() => {
+    let html5QrcodeScanner;
+    // Solo activamos el scanner si estamos en la pestaña 0 (QR)
+    if (tabActionIndex === 0) {
+        // Pequeño delay para que el DIV exista
+        setTimeout(() => {
+            const element = document.getElementById('reader-caseta');
+            if (element && !scannerRef.current) {
+                html5QrcodeScanner = new Html5QrcodeScanner(
+                    "reader-caseta", 
+                    { fps: 5, qrbox: { width: 250, height: 250 } },
+                    false
+                );
+                html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+                scannerRef.current = html5QrcodeScanner;
+            }
+        }, 500);
+    } else {
+        // Si cambiamos de pestaña, apagamos el scanner para no gastar recursos
+        if (scannerRef.current) {
+            scannerRef.current.clear().catch(err => console.error("Error limpiando scanner", err));
+            scannerRef.current = null;
+        }
+    }
+
+    return () => {
+        if (scannerRef.current) {
+            scannerRef.current.clear().catch(()=>{});
+            scannerRef.current = null;
+        }
+    };
+  }, [tabActionIndex]);
+
+  const onScanSuccess = async (decodedText) => {
+      // Pausar para evitar múltiples lecturas
+      if (scannerRef.current) scannerRef.current.pause();
+
+      try {
+          // Enviamos el código al backend
+          const res = await api.post('/api/accesos-trabajadores/escanear_qr/', { codigo: decodedText }, { headers: { Authorization: `Token ${token}` } });
+          
+          enqueueSnackbar(res.data.mensaje, { 
+              variant: res.data.tipo.includes('ENTRADA') ? 'success' : 'info',
+              autoHideDuration: 4000
+          });
+          
+          cargarDatos(); // Actualizar lista de gente adentro
+          
+          // Reanudar scanner después de 3 segundos
+          setTimeout(() => { 
+             if (scannerRef.current) scannerRef.current.resume(); 
+          }, 3000);
+
+      } catch (e) {
+          enqueueSnackbar("Error leyendo QR o Código Inválido", { variant: 'error' });
+          setTimeout(() => { if (scannerRef.current) scannerRef.current.resume(); }, 2000);
+      }
+  };
+
+  const onScanFailure = (error) => {
+      // No hacer nada para no llenar la consola, es normal mientras busca QR
+  };
 
   const cargarDatos = async () => {
     try {
@@ -156,16 +236,15 @@ function Caseta() {
       } catch (e) { enqueueSnackbar('Error', { variant: 'error' }); }
   };
 
-  // ✅ CORRECCIÓN: REGISTRAR INCIDENTE CON MULTIMEDIA USANDO FORMDATA
   const handleIncidente = async () => { 
       if(!incidente) return alert("Por favor escriba una descripción."); 
       
       const fd = new FormData();
-      fd.append('titulo', 'Reporte desde Caseta'); // Requisito del modelo Bitacora
+      fd.append('titulo', 'Reporte desde Caseta'); 
       fd.append('descripcion', incidente);
       fd.append('tipo', 'OTRO'); 
-      if (archivoFoto) fd.append('foto', archivoFoto); // Campo 'foto' según models.py
-      if (archivoVideo) fd.append('video', archivoVideo); // Campo 'video' según models.py
+      if (archivoFoto) fd.append('foto', archivoFoto); 
+      if (archivoVideo) fd.append('video', archivoVideo); 
 
       try {
           await api.post('/api/bitacora/', fd, {
@@ -181,7 +260,6 @@ function Caseta() {
       }
   };
 
-  // Funciones de Chat
   const cargarChat = async (userId) => { try { const res = await api.get(`/api/chat/?usuario=${userId}&archivados=${verArchivados}`); setMensajes(res.data.results || res.data); } catch(e){} };
   const seleccionarVecino = (vecino) => { setChatActivo(vecino); cargarChat(vecino.id); setBusqueda(''); };
   const enviarMensaje = async () => { if (!nuevoMensaje.trim() || !chatActivo) return; try { await api.post('/api/chat/', { destinatario: chatActivo.id, mensaje: nuevoMensaje }); setNuevoMensaje(''); cargarChat(chatActivo.id); } catch(e) {} };
@@ -257,6 +335,14 @@ function Caseta() {
              </Tabs>
              
              <Box sx={{ p: 3, flexGrow: 1, overflowY: 'auto', display:'flex', flexDirection:'column' }}>
+                {tabActionIndex === 0 && (
+                    // ✅ PESTAÑA ESCÁNER
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                        <div id="reader-caseta" style={{ width: '100%', maxWidth: '400px', backgroundColor: 'white', borderRadius: 8, overflow:'hidden' }}></div>
+                        <Typography variant="caption" color="gray" sx={{mt:2}}>Enfoque el código QR a la cámara</Typography>
+                    </Box>
+                )}
+
                 {tabActionIndex === 1 && (
                     <Box maxWidth="sm" mx="auto" width="100%">
                         <Grid container spacing={2}>
@@ -276,7 +362,6 @@ function Caseta() {
                         <Box flexShrink={0}>
                             <CustomTextField multiline rows={3} placeholder="Describa el suceso..." value={incidente} onChange={e=>setIncidente(e.target.value)}/>
                             
-                            {/* ✅ SECCIÓN DE ADJUNTO MULTIMEDIA */}
                             <Box display="flex" gap={2} mt={2}>
                                 <Button variant="outlined" component="label" startIcon={<PhotoCamera/>} sx={{color: themeColors.textPrimary, borderColor: themeColors.bgLight}}>
                                     {archivoFoto ? "Foto Lista" : "Subir Foto"}

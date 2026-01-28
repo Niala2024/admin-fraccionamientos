@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.db.models import Q
 from datetime import timedelta 
-from django.apps import apps # Necesario para buscar el modelo Casa
+from django.apps import apps # ✅ Necesario para buscar la casa sin romper nada
 
 from .models import Visita, Trabajador, AccesoTrabajador, Bitacora, ReporteDiario, MensajeChat
 from .serializers import (
@@ -79,7 +79,8 @@ class ReporteDiarioViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(guardia=self.request.user)
 
-# --- 3. ACCESOS Y VISITAS (AQUI ESTÁ LA CORRECCIÓN CLAVE) ---
+# --- 3. ACCESOS Y VISITAS ---
+
 class AccesoTrabajadorViewSet(viewsets.ModelViewSet):
     queryset = AccesoTrabajador.objects.all()
     serializer_class = AccesoTrabajadorSerializer
@@ -106,28 +107,28 @@ class VisitaViewSet(viewsets.ModelViewSet):
     serializer_class = VisitaSerializer
 
     def perform_create(self, serializer): 
-        # ✅ LÓGICA INTELIGENTE DE ASIGNACIÓN DE CASA
-        # Esto soluciona el error "No tienes casa asignada"
+        # ✅ LÓGICA RECUPERADA: BÚSQUEDA INTELIGENTE DE CASA
         user = self.request.user
         casa_obj = None
 
-        # 1. Opción A: El usuario tiene el campo 'casa' directo (Tu configuración actual en Admin)
+        # 1. Opción A: El usuario tiene el campo 'casa' directo en su perfil
         if hasattr(user, 'casa') and user.casa:
             casa_obj = user.casa
         
-        # 2. Opción B: El usuario es 'propietario' en la tabla Casa (Configuración estándar)
+        # 2. Opción B: El usuario es 'propietario' en la tabla Casa (Tu caso actual)
         if not casa_obj:
             try:
+                # Cargamos el modelo dinámicamente para evitar errores
                 Casa = apps.get_model('inmuebles', 'Casa')
                 casa_obj = Casa.objects.filter(propietario=user).first()
             except Exception:
                 pass
 
-        # 3. Guardamos la visita con la casa que encontramos
+        # 3. Guardamos la visita asignando la casa encontrada
         if casa_obj:
             serializer.save(creado_por=user, casa=casa_obj)
         else:
-            # Si es admin o guardia creando visita, la casa podría venir en el request
+            # Si sigue sin encontrar (ej. es admin), guarda solo el creador
             serializer.save(creado_por=user)
     
     @action(detail=False, methods=['get'])
@@ -138,15 +139,29 @@ class VisitaViewSet(viewsets.ModelViewSet):
 class TrabajadorViewSet(viewsets.ModelViewSet):
     queryset = Trabajador.objects.all()
     serializer_class = TrabajadorSerializer
+    
     def perform_create(self, serializer):
-        # Aplicamos la misma lógica para trabajadores
+        # ✅ Misma lógica inteligente para trabajadores
         user = self.request.user
         casa_id = self.request.data.get('casa')
-        
+        casa_obj = None
+
         if casa_id: 
             serializer.save(casa_id=casa_id)
-        elif hasattr(user, 'casa') and user.casa:
-            serializer.save(casa=user.casa)
+            return
+
+        if hasattr(user, 'casa') and user.casa:
+            casa_obj = user.casa
+        
+        if not casa_obj:
+            try:
+                Casa = apps.get_model('inmuebles', 'Casa')
+                casa_obj = Casa.objects.filter(propietario=user).first()
+            except Exception:
+                pass
+
+        if casa_obj:
+            serializer.save(casa=casa_obj)
         else:
             serializer.save()
 
@@ -159,7 +174,10 @@ class BitacoraViewSet(viewsets.ModelViewSet):
             ayer = timezone.now() - timezone.timedelta(hours=24)
             qs = qs.filter(fecha__gte=ayer).order_by('-fecha')
         return qs
-    def perform_create(self, serializer): serializer.save(autor=self.request.user)
+    # ✅ IMPORTANTE: Aquí se procesan las FOTOS y VIDEOS de la bitácora
+    # Como ya configuramos Cloudinary en settings.py, esto funcionará automático.
+    def perform_create(self, serializer): 
+        serializer.save(autor=self.request.user)
 
 class ReporteAccesosView(APIView):
     def get(self, request): return Response({'status': 'PDF'})

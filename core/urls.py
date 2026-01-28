@@ -17,6 +17,7 @@ from seguridad.views import (
     ReporteDiarioViewSet, MensajeChatViewSet
 )
 
+# --- CONFIGURACIÓN DEL ROUTER ---
 router = DefaultRouter()
 router.register(r'fraccionamientos', FraccionamientoViewSet, basename='fraccionamiento')
 router.register(r'usuarios', UsuarioViewSet)
@@ -47,12 +48,13 @@ urlpatterns = [
     path('api/reporte-accesos/', ReporteAccesosView.as_view(), name='reporte_accesos'),
 ]
 
-# Servir archivos media en desarrollo (opcional)
+# Servir archivos media en desarrollo (en producción lo hace Cloudinary)
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-# ✅ RUTA MÁGICA (CATCH-ALL)
-# Esto debe ir AL FINAL. Si la URL no es /api ni /admin, entrega React.
+# ✅ RUTA MÁGICA (CATCH-ALL) PARA REACT
+# Esta ruta atrapa cualquier URL que no sea API o Admin y entrega el frontend.
+# DEBE IR AL FINAL DE LA LISTA.
 urlpatterns += [
     re_path(r'^.*$', TemplateView.as_view(template_name='index.html'))
 ]

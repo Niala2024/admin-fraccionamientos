@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'cloudinary',
 
-    # ✅ APPS DE TERCEROS (Sin duplicados)
+    # ✅ APPS DE TERCEROS
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
@@ -75,7 +75,8 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': ['/app/frontend/dist'],
+        # ✅ CORRECCIÓN: Usamos ruta relativa segura para encontrar el template
+        'DIRS': [os.path.join(BASE_DIR, '../frontend/dist')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -114,14 +115,20 @@ USE_I18N = True
 USE_TZ = True
 
 # --- 6. ARCHIVOS ESTÁTICOS Y MEDIA ---
-STATIC_URL = 'static/'
+
+# ⚠️ CORRECCIÓN CRÍTICA: Debe empezar con barra /
+STATIC_URL = '/static/' 
+
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# ⚠️ CORRECCIÓN CRÍTICA: Ruta dinámica al frontend
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, '../frontend/dist'),
 ]
-# Configuración de WhiteNoise para compresión y caché
-# Configuración de WhiteNoise para servir los archivos optimizados
+
+# WhiteNoise se encarga de servir estos archivos en producción
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
@@ -132,7 +139,7 @@ CLOUDINARY_STORAGE = {
     'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
 }
 
-# Decirle a Django que use Cloudinary para los archivos media (fotos subidas)
+# Decirle a Django que use Cloudinary para los archivos media
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 # --- 7. CONFIGURACIÓN SMTP2GO ---
@@ -145,7 +152,7 @@ EMAIL_HOST_USER = 'railwayapp'
 EMAIL_HOST_PASSWORD = os.getenv('SMTP2GO_PASSWORD')
 DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
 
-# --- 8. SEGURIDAD CORS Y CSRF (HARDENING) ---
+# --- 8. SEGURIDAD CORS Y CSRF ---
 
 CORS_ALLOW_ALL_ORIGINS = False
 
@@ -170,7 +177,7 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "authorization",
 ]
 
-# --- 9. CONFIGURACIÓN DRF (SEGURIDAD ACTIVADA) ---
+# --- 9. CONFIGURACIÓN DRF ---
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',

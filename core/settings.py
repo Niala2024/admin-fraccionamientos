@@ -75,8 +75,12 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        # ✅ CORRECCIÓN: Usamos ruta relativa segura para encontrar el template
-        'DIRS': [os.path.join(BASE_DIR, '../frontend/dist')],
+        'DIRS': [
+            # Intenta buscar en la carpeta original del build
+            os.path.join(BASE_DIR, '../frontend/dist'),
+            # RESPALDO: Intenta buscar en staticfiles (donde collectstatic mueve todo)
+            os.path.join(BASE_DIR, 'staticfiles'),
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

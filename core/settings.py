@@ -65,7 +65,7 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        # ✅ CORRECCIÓN 1: Ruta directa a frontend/dist (sin ..)
+        # Apuntamos directo a frontend/dist
         'DIRS': [os.path.join(BASE_DIR, 'frontend/dist')],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -91,10 +91,10 @@ DATABASES = {
 # --- 4. AUTH ---
 AUTH_USER_MODEL = 'usuarios.Usuario'
 AUTH_PASSWORD_VALIDATORS = [
-    { 'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator', },
-    { 'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', },
-    { 'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator', },
-    { 'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator', },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
 LANGUAGE_CODE = 'es-mx'
@@ -102,16 +102,16 @@ TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_TZ = True
 
-# --- 6. ESTÁTICOS (CORRECCIÓN CLAVE) ---
+# --- 6. ESTÁTICOS (CONFIGURACIÓN ROBUSTA) ---
 STATIC_URL = '/static/' 
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# ✅ CORRECCIÓN 2: Ruta directa a frontend/dist (sin ..)
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'frontend/dist'),
 ]
 
-# Usamos la versión segura de WhiteNoise para evitar error 500 si falta un archivo
+# ✅ CAMBIO CLAVE: Usamos 'CompressedStaticFilesStorage' (sin Manifest) 
+# para evitar error 500 si falta algún archivo
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 MEDIA_URL = '/media/'

@@ -2,8 +2,9 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.generic import TemplateView
+from django.http import HttpResponse
 from rest_framework.routers import DefaultRouter
+import os
 
 # --- TUS IMPORTS ---
 from usuarios.views import UsuarioViewSet, CustomAuthToken
@@ -17,7 +18,6 @@ from seguridad.views import (
     ReporteDiarioViewSet, MensajeChatViewSet
 )
 
-# --- CONFIGURACIÓN DEL ROUTER ---
 router = DefaultRouter()
 router.register(r'fraccionamientos', FraccionamientoViewSet, basename='fraccionamiento')
 router.register(r'usuarios', UsuarioViewSet)
@@ -38,23 +38,34 @@ router.register(r'tipos-egresos', TipoEgresoViewSet)
 router.register(r'egresos', EgresoViewSet)
 router.register(r'servicios', ServicioViewSet)
 
+# ✅ FUNCIÓN PARA SERVIR REACT MANUALMENTE
+# Esto evita el error 500 al no usar el motor de plantillas de Django
+def serve_react(request, resource=""):
+    try:
+        # Buscamos el index.html en la carpeta donde Vite lo construyó
+        path = os.path.join(settings.BASE_DIR, 'frontend/dist/index.html')
+        with open(path, 'r') as file:
+            return HttpResponse(file.read(), content_type='text/html')
+    except FileNotFoundError:
+        return HttpResponse(
+            "Error: El archivo 'frontend/dist/index.html' no existe. Asegúrate de haber ejecutado 'npm run build'.",
+            status=501
+        )
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     
-    # Rutas API Específicas
     path('api/api-token-auth/', CustomAuthToken.as_view(), name='api_token_auth'),
     path('api/generar-reporte/', ReporteFinancieroView.as_view(), name='generar_reporte'),
     path('api/reporte-accesos/', ReporteAccesosView.as_view(), name='reporte_accesos'),
 ]
 
-# Servir archivos media en desarrollo (en producción lo hace Cloudinary)
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
-# ✅ RUTA MÁGICA (CATCH-ALL) PARA REACT
-# Esta ruta atrapa cualquier URL que no sea API o Admin y entrega el frontend.
-# DEBE IR AL FINAL DE LA LISTA.
+# ✅ RUTA CATCH-ALL SEGURA
+# Usa nuestra función manual en lugar de TemplateView
 urlpatterns += [
-    re_path(r'^.*$', TemplateView.as_view(template_name='index.html'))
+    re_path(r'^.*$', serve_react)
 ]

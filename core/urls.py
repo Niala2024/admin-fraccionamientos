@@ -9,7 +9,7 @@ from rest_framework.routers import DefaultRouter
 from usuarios.views import UsuarioViewSet, CustomAuthToken
 from inmuebles.views import FraccionamientoViewSet, CasaViewSet, CalleViewSet
 from finanzas.views import PagoViewSet, TipoEgresoViewSet, EgresoViewSet, ReporteFinancieroView
-from comunidad.views import EncuestaViewSet, PublicacionViewSet, QuejaViewSet, AvisoViewSet, ServicioExternoViewSet
+from comunidad.views import EncuestaViewSet, ConfiguracionComunidadViewSet,PublicacionViewSet, QuejaViewSet, AvisoViewSet, ServicioExternoViewSet
 from servicios.views import ServicioViewSet
 from seguridad.views import (
     VisitaViewSet, BitacoraViewSet, TrabajadorViewSet, 
@@ -36,6 +36,7 @@ router.register(r'avisos', AvisoViewSet)
 router.register(r'tipos-egresos', TipoEgresoViewSet)
 router.register(r'egresos', EgresoViewSet)
 router.register(r'servicios', ServicioViewSet)
+router.register(r'config-comunidad', ConfiguracionComunidadViewSet, basename='config-comunidad')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

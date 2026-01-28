@@ -22,10 +22,10 @@ class IsOwnerOrAdmin(permissions.BasePermission):
         autor = getattr(obj, 'autor', None) or getattr(obj, 'usuario', None) or getattr(obj, 'creado_por', None)
         return autor == request.user or request.user.is_staff
 
-# ✅ VIEWSET CORREGIDO (Sin bloqueo estricto de Staff)
 class ConfiguracionComunidadViewSet(viewsets.ViewSet):
-    # Solo requiere estar logueado
-    permission_classes = [permissions.IsAuthenticated]
+    # ✅ CAMBIO: Usamos 'IsAuthenticatedOrReadOnly' para que NO bloquee la carga (GET)
+    # pero sí pida login para editar (POST).
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def list(self, request):
         config = ConfiguracionComunidad.objects.first()
@@ -35,9 +35,7 @@ class ConfiguracionComunidadViewSet(viewsets.ViewSet):
         return Response(serializer.data)
 
     def create(self, request):
-        # ✅ CAMBIO: Quitamos el bloqueo "is_staff" para que te deje pasar.
-        # Confiamos en que el botón solo lo ves tú en el frontend.
-        
+        # Este endpoint funciona como "Crear o Actualizar" (Singleton)
         config = ConfiguracionComunidad.objects.first()
         if config:
             serializer = ConfiguracionComunidadSerializer(config, data=request.data, partial=True)
@@ -96,6 +94,14 @@ class AvisoViewSet(viewsets.ModelViewSet):
     queryset = Aviso.objects.filter(vigente=True).order_by('-fecha_creacion')
     serializer_class = AvisoSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    # ✅ CAMBIO: Agregamos de vuelta la acción 'ultimo' que faltaba
+    @action(detail=False, methods=['get'])
+    def ultimo(self, request):
+        aviso = self.queryset.first()
+        if aviso:
+            return Response(self.get_serializer(aviso).data)
+        return Response({})
 
 class ServicioExternoViewSet(viewsets.ModelViewSet):
     queryset = ServicioExterno.objects.filter(aprobado=True).order_by('-fecha_registro')

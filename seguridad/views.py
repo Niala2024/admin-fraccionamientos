@@ -22,22 +22,18 @@ class MensajeChatViewSet(viewsets.ModelViewSet):
         rol = getattr(user, 'rol', '').lower() if getattr(user, 'rol', '') else ''
         es_autoridad = user.is_staff or user.is_superuser or 'guardia' in rol or 'admin' in rol
 
-        # FILTRO: ¿Queremos ver los archivados o los normales?
+        # Ver archivados o activos
         ver_archivados = self.request.query_params.get('archivados') == 'true'
-        
-        # Filtramos por el estado de archivo solicitado
         queryset = MensajeChat.objects.filter(archivado=ver_archivados).order_by('fecha')
 
         otro_usuario_id = self.request.query_params.get('usuario')
 
         if es_autoridad:
             if otro_usuario_id:
-                # Chat específico con un vecino
                 return queryset.filter(
                     Q(remitente_id=otro_usuario_id) | Q(destinatario_id=otro_usuario_id)
                 ).order_by('fecha')
             else:
-                # Monitoreo general
                 return queryset.order_by('-fecha')[:50]
         else:
             return queryset.filter(
@@ -50,7 +46,6 @@ class MensajeChatViewSet(viewsets.ModelViewSet):
         es_autoridad = user.is_staff or user.is_superuser or 'guardia' in rol or 'admin' in rol
         serializer.save(remitente=user, es_guardia=es_autoridad)
 
-    # ✅ ACCIÓN: Archivar
     @action(detail=True, methods=['patch'])
     def archivar(self, request, pk=None):
         mensaje = self.get_object()
@@ -58,7 +53,6 @@ class MensajeChatViewSet(viewsets.ModelViewSet):
         mensaje.save()
         return Response({'status': 'Mensaje archivado'})
 
-    # ✅ ACCIÓN: Desarchivar (Restaurar)
     @action(detail=True, methods=['patch'])
     def desarchivar(self, request, pk=None):
         mensaje = self.get_object()
@@ -66,18 +60,25 @@ class MensajeChatViewSet(viewsets.ModelViewSet):
         mensaje.save()
         return Response({'status': 'Mensaje restaurado'})
 
-# --- 2. REPORTE DIARIO ---
+# --- 2. REPORTE DIARIO (BITÁCORA) ---
 class ReporteDiarioViewSet(viewsets.ModelViewSet):
     queryset = ReporteDiario.objects.all().order_by('-fecha')
     serializer_class = ReporteDiarioSerializer
 
     def get_queryset(self):
         queryset = super().get_queryset()
+        
         fecha_param = self.request.query_params.get('fecha')
+        
         if fecha_param:
+            # Si piden una fecha específica (Historial)
             queryset = queryset.filter(fecha__date=fecha_param)
-            return queryset
-        return queryset[:50]
+        else:
+            # ✅ POR DEFECTO: Solo muestra lo de HOY (Turno actual)
+            hoy = timezone.now().date()
+            queryset = queryset.filter(fecha__date=hoy)
+            
+        return queryset.order_by('-fecha') # Lo más nuevo arriba
 
     def perform_create(self, serializer):
         serializer.save(guardia=self.request.user)
@@ -86,7 +87,6 @@ class ReporteDiarioViewSet(viewsets.ModelViewSet):
 class AccesoTrabajadorViewSet(viewsets.ModelViewSet):
     queryset = AccesoTrabajador.objects.all()
     serializer_class = AccesoTrabajadorSerializer
-
     def get_queryset(self):
         queryset = super().get_queryset()
         inicio = self.request.query_params.get('inicio')
@@ -94,13 +94,11 @@ class AccesoTrabajadorViewSet(viewsets.ModelViewSet):
         if inicio and fin:
             queryset = queryset.filter(fecha_entrada__date__range=[inicio, fin])
         return queryset
-        
     @action(detail=False, methods=['get'])
     def activos(self, request):
         activos = AccesoTrabajador.objects.filter(fecha_salida__isnull=True).order_by('-fecha_entrada')
         serializer = self.get_serializer(activos, many=True)
         return Response(serializer.data)
-        
     @action(detail=False, methods=['post'])
     def escanear_qr(self, request):
         codigo = request.data.get('codigo') 
@@ -111,7 +109,6 @@ class VisitaViewSet(viewsets.ModelViewSet):
     queryset = Visita.objects.all().order_by('-id')
     serializer_class = VisitaSerializer
     def perform_create(self, serializer): serializer.save(creado_por=self.request.user)
-    
     @action(detail=False, methods=['get'])
     def activas(self, request):
         activas = Visita.objects.filter(fecha_llegada_real__isnull=False, fecha_salida_real__isnull=True).order_by('-fecha_llegada_real')

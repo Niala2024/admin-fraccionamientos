@@ -12,7 +12,7 @@ from .serializers import (
     BitacoraSerializer, ReporteDiarioSerializer, MensajeChatSerializer
 )
 
-# --- 1. CHAT INTERNO (Con Archivar) ---
+# --- 1. CHAT INTERNO ---
 class MensajeChatViewSet(viewsets.ModelViewSet):
     queryset = MensajeChat.objects.all().order_by('fecha')
     serializer_class = MensajeChatSerializer
@@ -22,8 +22,11 @@ class MensajeChatViewSet(viewsets.ModelViewSet):
         rol = getattr(user, 'rol', '').lower() if getattr(user, 'rol', '') else ''
         es_autoridad = user.is_staff or user.is_superuser or 'guardia' in rol or 'admin' in rol
 
-        # Base: No mostramos mensajes archivados
-        queryset = MensajeChat.objects.filter(archivado=False).order_by('fecha')
+        # FILTRO: ¿Queremos ver los archivados o los normales?
+        ver_archivados = self.request.query_params.get('archivados') == 'true'
+        
+        # Filtramos por el estado de archivo solicitado
+        queryset = MensajeChat.objects.filter(archivado=ver_archivados).order_by('fecha')
 
         otro_usuario_id = self.request.query_params.get('usuario')
 
@@ -34,10 +37,9 @@ class MensajeChatViewSet(viewsets.ModelViewSet):
                     Q(remitente_id=otro_usuario_id) | Q(destinatario_id=otro_usuario_id)
                 ).order_by('fecha')
             else:
-                # Monitoreo general (últimos 50 mensajes no archivados)
+                # Monitoreo general
                 return queryset.order_by('-fecha')[:50]
         else:
-            # Vecino: Solo ve sus mensajes
             return queryset.filter(
                 Q(remitente=user) | Q(destinatario=user)
             ).order_by('fecha')
@@ -48,13 +50,21 @@ class MensajeChatViewSet(viewsets.ModelViewSet):
         es_autoridad = user.is_staff or user.is_superuser or 'guardia' in rol or 'admin' in rol
         serializer.save(remitente=user, es_guardia=es_autoridad)
 
-    # ✅ ACCIÓN: Archivar mensaje (ocultar)
+    # ✅ ACCIÓN: Archivar
     @action(detail=True, methods=['patch'])
     def archivar(self, request, pk=None):
         mensaje = self.get_object()
         mensaje.archivado = True
         mensaje.save()
         return Response({'status': 'Mensaje archivado'})
+
+    # ✅ ACCIÓN: Desarchivar (Restaurar)
+    @action(detail=True, methods=['patch'])
+    def desarchivar(self, request, pk=None):
+        mensaje = self.get_object()
+        mensaje.archivado = False
+        mensaje.save()
+        return Response({'status': 'Mensaje restaurado'})
 
 # --- 2. REPORTE DIARIO ---
 class ReporteDiarioViewSet(viewsets.ModelViewSet):
@@ -72,7 +82,7 @@ class ReporteDiarioViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(guardia=self.request.user)
 
-# --- 3. ACCESOS Y VISITAS (Listas Activas) ---
+# --- 3. ACCESOS Y VISITAS ---
 class AccesoTrabajadorViewSet(viewsets.ModelViewSet):
     queryset = AccesoTrabajador.objects.all()
     serializer_class = AccesoTrabajadorSerializer
@@ -87,7 +97,6 @@ class AccesoTrabajadorViewSet(viewsets.ModelViewSet):
         
     @action(detail=False, methods=['get'])
     def activos(self, request):
-        # Trabajadores que entraron pero NO han salido
         activos = AccesoTrabajador.objects.filter(fecha_salida__isnull=True).order_by('-fecha_entrada')
         serializer = self.get_serializer(activos, many=True)
         return Response(serializer.data)
@@ -101,17 +110,11 @@ class AccesoTrabajadorViewSet(viewsets.ModelViewSet):
 class VisitaViewSet(viewsets.ModelViewSet):
     queryset = Visita.objects.all().order_by('-id')
     serializer_class = VisitaSerializer
-
-    def perform_create(self, serializer): 
-        serializer.save(creado_por=self.request.user)
+    def perform_create(self, serializer): serializer.save(creado_por=self.request.user)
     
     @action(detail=False, methods=['get'])
     def activas(self, request):
-        # Visitas que ya llegaron (tienen fecha_llegada) pero no han salido (sin fecha_salida)
-        activas = Visita.objects.filter(
-            fecha_llegada_real__isnull=False, 
-            fecha_salida_real__isnull=True
-        ).order_by('-fecha_llegada_real')
+        activas = Visita.objects.filter(fecha_llegada_real__isnull=False, fecha_salida_real__isnull=True).order_by('-fecha_llegada_real')
         return Response(self.get_serializer(activas, many=True).data)
 
 class TrabajadorViewSet(viewsets.ModelViewSet):

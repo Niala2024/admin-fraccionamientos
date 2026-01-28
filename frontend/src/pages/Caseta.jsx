@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Box, AppBar, Toolbar, Typography, Grid, Paper, Button, 
   Tabs, Tab, TextField, IconButton, List, ListItem, 
-  ListItemText, ListItemAvatar, Avatar, Divider, Chip,
-  Card, CardContent, InputAdornment, useTheme, Badge, Tooltip
+  ListItemText, ListItemAvatar, Avatar, Chip,
+  Card, CardContent, InputAdornment, useTheme, Badge, Tooltip, MenuItem
 } from '@mui/material';
 import { Html5QrcodeScanner } from "html5-qrcode";
 import { useSnackbar } from 'notistack';
@@ -24,14 +24,15 @@ import PersonIcon from '@mui/icons-material/Person';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import LocalTaxiIcon from '@mui/icons-material/LocalTaxi';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'; 
-import ElectricBoltIcon from '@mui/icons-material/ElectricBolt';
+import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash'; // Icono Desarchivar
 import InventoryIcon from '@mui/icons-material/Inventory';
-import EngineeringIcon from '@mui/icons-material/Engineering'; // Para Trabajadores
-import BadgeIcon from '@mui/icons-material/Badge'; // Para Gafete
+import EngineeringIcon from '@mui/icons-material/Engineering';
+import BadgeIcon from '@mui/icons-material/Badge';
+import ArchiveIcon from '@mui/icons-material/Archive'; // Icono ver archivados
 
 import api from '../api/axiosConfig';
 
-// --- PALETA DE COLORES ERGONÓMICA ---
+// --- PALETA DE COLORES ---
 const themeColors = {
     bgMain: '#0f172a',      
     bgPaper: '#1e293b',     
@@ -55,17 +56,16 @@ function Caseta() {
   // --- ESTADOS ---
   const [reloj, setReloj] = useState(new Date());
   const [tabActionIndex, setTabActionIndex] = useState(0); 
-
-  // Lista unificada (Visitas + Trabajadores)
   const [genteAdentro, setGenteAdentro] = useState([]);
-  
   const [vecinos, setVecinos] = useState([]);
   const [vecinosFiltrados, setVecinosFiltrados] = useState([]);
   const [busqueda, setBusqueda] = useState('');
   
+  // Chat States
   const [chatActivo, setChatActivo] = useState(null);
   const [mensajes, setMensajes] = useState([]);
   const [nuevoMensaje, setNuevoMensaje] = useState('');
+  const [verArchivados, setVerArchivados] = useState(false); // ✅ Toggle Archivados
   
   const [formManual, setFormManual] = useState({ nombre: '', destino: '', tipo: 'Visita', placas: '' });
   const [incidente, setIncidente] = useState('');
@@ -80,51 +80,35 @@ function Caseta() {
         if (chatActivo) cargarChat(chatActivo.id);
     }, 5000);
     return () => { clearInterval(timer); clearInterval(dataInterval); };
-  }, [chatActivo]);
+  }, [chatActivo, verArchivados]); // Se recarga si cambia el modo archivados
 
   const cargarDatos = async () => {
     try {
-      // 1. Cargamos Visitas y Trabajadores Activos en paralelo
       const [resVisitas, resTrabajadores, resUsuarios] = await Promise.all([
-        api.get('/api/visitas/activas/'), // Usa el endpoint dedicado que creamos
-        api.get('/api/accesos-trabajadores/activos/'), // Usa el endpoint dedicado
+        api.get('/api/visitas/activas/'), 
+        api.get('/api/accesos-trabajadores/activos/'), 
         api.get('/api/usuarios/')
       ]);
 
       const listaVisitas = resVisitas.data.results || resVisitas.data || [];
       const listaTrabajadores = resTrabajadores.data.results || resTrabajadores.data || [];
 
-      // 2. Unificamos la lista para mostrar "Todo lo que está adentro"
       const unificados = [
           ...listaVisitas.map(v => ({
-              id: v.id,
-              tipo_registro: 'visita', // Bandera para saber a qué API llamar al salir
-              nombre: v.nombre_visitante,
-              subtitulo: v.placas_vehiculo || 'Sin vehículo',
-              destino: v.casa_nombre || 'Visita General',
-              tipo_icono: v.tipo, // Visita, Proveedor, Taxi...
-              fecha_entrada: v.fecha_llegada_real
+              id: v.id, tipo_registro: 'visita', nombre: v.nombre_visitante, subtitulo: v.placas_vehiculo || 'Sin vehículo',
+              destino: v.casa_nombre || 'Visita General', tipo_icono: v.tipo, fecha_entrada: v.fecha_llegada_real
           })),
           ...listaTrabajadores.map(t => ({
-              id: t.id,
-              tipo_registro: 'trabajador',
-              nombre: t.trabajador_nombre,
-              subtitulo: 'Trabajador / Empleado',
-              destino: t.casa_datos ? `Casa ${t.casa_datos}` : 'Mantenimiento',
-              tipo_icono: 'Trabajador',
-              fecha_entrada: t.fecha_entrada
+              id: t.id, tipo_registro: 'trabajador', nombre: t.trabajador_nombre, subtitulo: 'Trabajador / Empleado',
+              destino: t.casa_datos ? `Casa ${t.casa_datos}` : 'Mantenimiento', tipo_icono: 'Trabajador', fecha_entrada: t.fecha_entrada
           }))
       ];
-
-      // Ordenar por hora de entrada (los más recientes arriba)
       unificados.sort((a, b) => new Date(b.fecha_entrada) - new Date(a.fecha_entrada));
       setGenteAdentro(unificados);
 
-      // 3. Carga de vecinos para el chat
       const listaVecinos = (resUsuarios.data.results || resUsuarios.data).filter(u => !u.is_staff && !u.is_superuser);
       setVecinos(listaVecinos);
       if (!busqueda) setVecinosFiltrados(listaVecinos);
-
     } catch (error) { console.error("Error datos", error); }
   };
 
@@ -138,33 +122,15 @@ function Caseta() {
 
   useEffect(() => { chatBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [mensajes]);
 
-  // --- LOGICA DE SALIDAS UNIFICADA ---
-  const handleSalida = async (item) => {
-      if (!confirm(`¿Registrar salida de: ${item.nombre}?`)) return;
-      
-      try {
-          if (item.tipo_registro === 'visita') {
-              // Salida de Visita
-              await api.patch(`/api/visitas/${item.id}/`, { 
-                  fecha_salida_real: new Date() // Marcamos fecha real
-              });
-          } else if (item.tipo_registro === 'trabajador') {
-              // Salida de Trabajador
-              await api.patch(`/api/accesos-trabajadores/${item.id}/`, { 
-                  fecha_salida: new Date() 
-              });
-          }
-          enqueueSnackbar('Salida registrada correctamente', { variant: 'info' });
-          cargarDatos(); // Recargar lista inmediatamente
-      } catch (e) { 
-          enqueueSnackbar('Error al registrar salida', { variant: 'error' }); 
-      }
+  // --- LÓGICA CHAT ---
+  const cargarChat = async (userId) => {
+    try { 
+        // Solicitamos con el filtro de archivados activo
+        const res = await api.get(`/api/chat/?usuario=${userId}&archivados=${verArchivados}`); 
+        setMensajes(res.data.results || res.data); 
+    } catch(e){}
   };
 
-  // --- OTRAS FUNCIONES (Chat, Manual, QR) ---
-  const cargarChat = async (userId) => {
-    try { const res = await api.get(`/api/chat/?usuario=${userId}`); setMensajes(res.data.results || res.data); } catch(e){}
-  };
   const seleccionarVecino = (vecino) => { setChatActivo(vecino); cargarChat(vecino.id); setBusqueda(''); };
   
   const enviarMensaje = async () => {
@@ -173,12 +139,27 @@ function Caseta() {
     catch(e) { enqueueSnackbar('Error enviando', {variant:'error'}); }
   };
 
-  const handleArchivarMensaje = async (mensajeId) => {
+  // ✅ ARCHIVAR / DESARCHIVAR
+  const handleToggleArchivo = async (mensajeId, esArchivar) => {
       try {
-          await api.patch(`/api/chat/${mensajeId}/archivar/`);
+          const endpoint = esArchivar ? 'archivar' : 'desarchivar';
+          await api.patch(`/api/chat/${mensajeId}/${endpoint}/`);
+          // Lo quitamos de la vista actual
           setMensajes(prev => prev.filter(m => m.id !== mensajeId));
-          enqueueSnackbar('Mensaje archivado', { variant: 'success', autoHideDuration: 1000 });
-      } catch (error) { enqueueSnackbar('No se pudo archivar', { variant: 'error' }); }
+          enqueueSnackbar(esArchivar ? 'Mensaje archivado' : 'Mensaje restaurado', { variant: 'success', autoHideDuration: 1000 });
+      } catch (error) {
+          enqueueSnackbar('Error al procesar mensaje', { variant: 'error' });
+      }
+  };
+
+  // --- LÓGICA ACCESOS ---
+  const handleSalida = async (item) => {
+      if (!confirm(`¿Registrar salida de: ${item.nombre}?`)) return;
+      try {
+          if (item.tipo_registro === 'visita') await api.patch(`/api/visitas/${item.id}/`, { fecha_salida_real: new Date() });
+          else await api.patch(`/api/accesos-trabajadores/${item.id}/`, { fecha_salida: new Date() });
+          enqueueSnackbar('Salida registrada', { variant: 'info' }); cargarDatos();
+      } catch (e) { enqueueSnackbar('Error', { variant: 'error' }); }
   };
 
   const handleRegistroManual = async () => {
@@ -198,7 +179,6 @@ function Caseta() {
       if (tabActionIndex === 0 && document.getElementById("reader")) {
           const scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250, aspectRatio: 1.77 }, false);
           scanner.render((decoded) => { 
-              // Aquí podrías validar si el QR es de trabajador o visita
               setQrResult({ valido: true, mensaje: "Lectura: " + decoded }); 
               enqueueSnackbar('Código Escaneado', {variant:'success'}); 
           });
@@ -206,15 +186,15 @@ function Caseta() {
       }
   }, [tabActionIndex]);
 
-  // --- ICONOS DINÁMICOS ---
   const getIcono = (tipo) => {
-      if(tipo === 'Trabajador') return <EngineeringIcon sx={{color: '#facc15'}}/>; // Amarillo
+      if(tipo === 'Trabajador') return <EngineeringIcon sx={{color: '#facc15'}}/>;
       if(tipo === 'Proveedor' || tipo === 'CFE' || tipo === 'Gas') return <LocalShippingIcon color="secondary"/>;
       if(tipo === 'Taxi' || tipo === 'Uber') return <LocalTaxiIcon color="warning"/>;
       if(tipo === 'Paqueteria') return <InventoryIcon sx={{color:'#a5b4fc'}}/>;
       return <DirectionsCarIcon color="primary"/>;
   };
 
+  // Componente de Texto Personalizado
   const CustomTextField = (props) => (
       <TextField {...props} variant="outlined" fullWidth 
         sx={{ 
@@ -222,6 +202,7 @@ function Caseta() {
             '& .MuiInputLabel-root': { color: themeColors.textSecondary },
             '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
             '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: themeColors.accent },
+            '& .MuiSelect-icon': { color: themeColors.textSecondary }, // Icono del select blanco
              ...props.sx
         }} 
       />
@@ -243,9 +224,10 @@ function Caseta() {
         </Toolbar>
       </AppBar>
 
+      {/* Grid Principal con tamaños Fijos para que no se mueva el chat */}
       <Grid container spacing={2} sx={{ flexGrow: 1, p: 2, overflow: 'hidden' }}>
         
-        {/* COLUMNA 1: MONITOREO TOTAL (Trabajadores + Visitas) */}
+        {/* COLUMNA 1: MONITOREO */}
         <Grid item xs={12} md={3} lg={2.5} sx={{ height: '100%' }}>
             <Paper elevation={2} sx={{ height: '100%', bgcolor: themeColors.bgPaper, borderRadius: 3, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <Box sx={{ p: 2, borderBottom: `1px solid ${themeColors.bgLight}`, display:'flex', alignItems:'center', justifyContent:'space-between' }}>
@@ -270,13 +252,8 @@ function Caseta() {
                                 </Box>
                                 <Box display="flex" justifyContent="space-between" alignItems="center">
                                     <Chip label={item.destino} size="small" sx={{ bgcolor: themeColors.bgPaper, color: themeColors.textSecondary, fontSize: '0.7rem', height: 20, maxWidth: '60%' }} />
-                                    <Button size="small" variant="contained" color="error" onClick={()=>handleSalida(item)} sx={{fontSize:'0.7rem', py:0.2, borderRadius:1.5, textTransform:'none'}}>
-                                        Salida
-                                    </Button>
+                                    <Button size="small" variant="contained" color="error" onClick={()=>handleSalida(item)} sx={{fontSize:'0.7rem', py:0.2, borderRadius:1.5, textTransform:'none'}}>Salida</Button>
                                 </Box>
-                                <Typography variant="caption" sx={{color: themeColors.textSecondary, fontSize:'0.6rem', mt:0.5, display:'block', textAlign:'right'}}>
-                                    Entrada: {new Date(item.fecha_entrada).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
-                                </Typography>
                             </CardContent>
                         </Card>
                     ))}
@@ -284,8 +261,8 @@ function Caseta() {
             </Paper>
         </Grid>
 
-        {/* COLUMNA 2: ACCIÓN PRINCIPAL */}
-        <Grid item xs={12} md={6} lg={6.5} sx={{ height: '100%' }}>
+        {/* COLUMNA 2: ACCIÓN PRINCIPAL (Ancho fijo para no empujar) */}
+        <Grid item xs={12} md={5} lg={6} sx={{ height: '100%' }}>
            <Paper elevation={2} sx={{ height: '100%', bgcolor: themeColors.bgPaper, borderRadius: 3, display:'flex', flexDirection:'column', overflow:'hidden' }}>
              <Tabs value={tabActionIndex} onChange={(e,v)=>setTabActionIndex(v)} centered 
                  sx={{ borderBottom: `1px solid ${themeColors.bgLight}`, '& .MuiTab-root': { color: themeColors.textSecondary, textTransform:'none', fontWeight:500 }, '& .Mui-selected': { color: themeColors.accent + '!important' } }}
@@ -315,16 +292,16 @@ function Caseta() {
                         <Grid container spacing={2.5}>
                             <Grid item xs={12} md={7}><CustomTextField label="Nombre del Conductor / Visitante" value={formManual.nombre} onChange={e=>setFormManual({...formManual, nombre:e.target.value})} InputProps={{startAdornment: <InputAdornment position="start"><PersonIcon sx={{color:themeColors.textSecondary}}/></InputAdornment>}} /></Grid>
                             <Grid item xs={12} md={5}>
-                                <CustomTextField select label="Tipo de Visita" value={formManual.tipo} onChange={e=>setFormManual({...formManual, tipo:e.target.value})} SelectProps={{native:true}}>
-                                    <option value="Visita">Visita Social</option>
-                                    <option value="Proveedor">Proveedor / Servicio</option>
-                                    <option value="Uber">Uber / Didi / Taxi</option>
-                                    <option value="Paqueteria">Paquetería / Amazon</option>
-                                    <option value="CFE">CFE / Luz</option>
-                                    <option value="Gas">Gas / Agua</option>
-                                    <option value="Mantenimiento">Mantenimiento</option>
-                                    <option value="Emergencia">Emergencia</option>
-                                    <option value="Otro">Otro</option>
+                                {/* ✅ CORRECCIÓN: Select con MenuItem explicito */}
+                                <CustomTextField select label="Tipo de Visita" value={formManual.tipo} onChange={e=>setFormManual({...formManual, tipo:e.target.value})}>
+                                    <MenuItem value="Visita">Visita Social</MenuItem>
+                                    <MenuItem value="Proveedor">Proveedor / Servicio</MenuItem>
+                                    <MenuItem value="Taxi">Taxi / Uber / Didi</MenuItem>
+                                    <MenuItem value="Paqueteria">Paquetería / Amazon</MenuItem>
+                                    <MenuItem value="CFE">CFE / Luz</MenuItem>
+                                    <MenuItem value="Gas">Gas / Agua</MenuItem>
+                                    <MenuItem value="Emergencia">Emergencia</MenuItem>
+                                    <MenuItem value="Otro">Otro</MenuItem>
                                 </CustomTextField>
                             </Grid>
                             <Grid item xs={12} md={6}><CustomTextField label="Placas del Vehículo" value={formManual.placas} onChange={e=>setFormManual({...formManual, placas:e.target.value})} InputProps={{startAdornment: <InputAdornment position="start"><DirectionsCarIcon sx={{color:themeColors.textSecondary}}/></InputAdornment>}}/></Grid>
@@ -346,20 +323,29 @@ function Caseta() {
            </Paper>
         </Grid>
 
-        {/* COLUMNA 3: COMUNICACIÓN */}
-        <Grid item xs={12} md={3} lg={3} sx={{ height: '100%' }}>
+        {/* COLUMNA 3: COMUNICACIÓN (Ancho fijo) */}
+        <Grid item xs={12} md={4} lg={3.5} sx={{ height: '100%' }}>
             <Paper elevation={2} sx={{ height: '100%', bgcolor: themeColors.bgPaper, borderRadius: 3, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                <Box sx={{ p: 2, borderBottom: `1px solid ${themeColors.bgLight}`, bgcolor: chatActivo ? themeColors.chatGuardia + '20' : 'transparent', display:'flex', alignItems:'center' }}>
+                <Box sx={{ p: 2, borderBottom: `1px solid ${themeColors.bgLight}`, bgcolor: chatActivo ? themeColors.chatGuardia + '20' : 'transparent', display:'flex', alignItems:'center', justifyContent: 'space-between' }}>
                     {chatActivo ? (
-                        <>
+                        <Box display="flex" alignItems="center">
                             <IconButton size="small" onClick={() => setChatActivo(null)} sx={{ color: themeColors.textSecondary, mr: 1 }}><ArrowBackIosNewIcon fontSize="small"/></IconButton>
                             <Avatar sx={{ bgcolor: themeColors.accent, width: 32, height: 32, mr: 1.5, fontSize:'0.9rem', fontWeight:'bold' }}>{chatActivo.username.charAt(0).toUpperCase()}</Avatar>
                             <Box overflow="hidden">
-                                <Typography variant="subtitle2" color={themeColors.textPrimary} noWrap fontWeight="bold">{chatActivo.first_name} {chatActivo.last_name}</Typography>
+                                <Typography variant="subtitle2" color={themeColors.textPrimary} noWrap fontWeight="bold">{chatActivo.first_name}</Typography>
                             </Box>
-                        </>
+                        </Box>
                     ) : (
-                        <Typography variant="subtitle1" fontWeight="bold" color={themeColors.textPrimary}>Comunicación Vecinos</Typography>
+                        <Typography variant="subtitle1" fontWeight="bold" color={themeColors.textPrimary}>Comunicación</Typography>
+                    )}
+
+                    {/* ✅ Toggle Ver Archivados */}
+                    {chatActivo && (
+                         <Tooltip title={verArchivados ? "Ver Mensajes Activos" : "Ver Archivados"}>
+                            <IconButton onClick={() => setVerArchivados(!verArchivados)} sx={{color: verArchivados ? themeColors.warning : themeColors.textSecondary}}>
+                                <ArchiveIcon />
+                            </IconButton>
+                        </Tooltip>
                     )}
                 </Box>
 
@@ -381,20 +367,26 @@ function Caseta() {
                     ) : (
                         <>
                             <Box sx={{ flexGrow: 1, overflowY: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1.5, bgcolor: themeColors.bgMain + '80' }}>
+                                {mensajes.length === 0 && (
+                                    <Typography align="center" sx={{color: themeColors.textSecondary, mt:4, fontStyle:'italic'}}>
+                                        {verArchivados ? "No hay mensajes archivados" : "No hay mensajes recientes"}
+                                    </Typography>
+                                )}
                                 {mensajes.map((msg, i) => (
                                     <Box key={i} sx={{ alignSelf: msg.es_mio ? 'flex-end' : 'flex-start', maxWidth: '85%', position: 'relative', '&:hover .archive-btn': {opacity: 1} }}>
                                         <Paper elevation={1} sx={{ p: 1.5, bgcolor: msg.es_mio ? themeColors.chatGuardia : themeColors.chatVecino, color: '#f1f5f9', borderRadius: '12px', borderBottomRightRadius: msg.es_mio?0:12, borderBottomLeftRadius:!msg.es_mio?0:12, pr: 4 }}>
                                             <Typography variant="body2" sx={{whiteSpace: 'pre-wrap', fontSize:'0.9rem'}}>{msg.mensaje}</Typography>
                                             <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', opacity: 0.7, fontSize: '0.65rem', mt: 0.5 }}>{new Date(msg.fecha).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Typography>
                                             
-                                            <Tooltip title="Ocultar (Atendido)">
+                                            {/* ✅ BOTÓN ARCHIVAR / DESARCHIVAR */}
+                                            <Tooltip title={verArchivados ? "Restaurar" : "Archivar"}>
                                                 <IconButton 
                                                     className="archive-btn"
                                                     size="small" 
-                                                    onClick={() => handleArchivarMensaje(msg.id)}
-                                                    sx={{ position: 'absolute', top: -10, right: -10, opacity: 0, transition: '0.2s', bgcolor: themeColors.bgPaper, border: `1px solid ${themeColors.bgLight}`, color: themeColors.success, '&:hover':{bgcolor:themeColors.bgLight} }}
+                                                    onClick={() => handleToggleArchivo(msg.id, !verArchivados)}
+                                                    sx={{ position: 'absolute', top: -10, right: -10, opacity: 0, transition: '0.2s', bgcolor: themeColors.bgPaper, border: `1px solid ${themeColors.bgLight}`, color: verArchivados ? themeColors.warning : themeColors.success, '&:hover':{bgcolor:themeColors.bgLight} }}
                                                 >
-                                                    <CheckCircleIcon fontSize="small" />
+                                                    {verArchivados ? <RestoreFromTrashIcon fontSize="small"/> : <CheckCircleIcon fontSize="small" />}
                                                 </IconButton>
                                             </Tooltip>
                                         </Paper>
@@ -402,10 +394,14 @@ function Caseta() {
                                 ))}
                                 <div ref={chatBottomRef} />
                             </Box>
-                            <Box sx={{ p: 1.5, bgcolor: themeColors.bgPaper, borderTop: `1px solid ${themeColors.bgLight}`, display: 'flex', alignItems:'center' }}>
-                                <CustomTextField fullWidth size="small" placeholder="Responder..." value={nuevoMensaje} onChange={(e) => setNuevoMensaje(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && enviarMensaje()} sx={{ mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 4, bgcolor: themeColors.bgLight } }} />
-                                <IconButton sx={{ bgcolor: themeColors.accent, color: 'white', '&:hover': { bgcolor: themeColors.accentHover }, width:40, height:40 }} onClick={enviarMensaje} disabled={!nuevoMensaje.trim()}><SendIcon fontSize="small" /></IconButton>
-                            </Box>
+                            
+                            {/* Input solo visible si no estamos viendo archivados */}
+                            {!verArchivados && (
+                                <Box sx={{ p: 1.5, bgcolor: themeColors.bgPaper, borderTop: `1px solid ${themeColors.bgLight}`, display: 'flex', alignItems:'center' }}>
+                                    <CustomTextField fullWidth size="small" placeholder="Responder..." value={nuevoMensaje} onChange={(e) => setNuevoMensaje(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && enviarMensaje()} sx={{ mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 4, bgcolor: themeColors.bgLight } }} />
+                                    <IconButton sx={{ bgcolor: themeColors.accent, color: 'white', '&:hover': { bgcolor: themeColors.accentHover }, width:40, height:40 }} onClick={enviarMensaje} disabled={!nuevoMensaje.trim()}><SendIcon fontSize="small" /></IconButton>
+                                </Box>
+                            )}
                         </>
                     )}
                 </Box>

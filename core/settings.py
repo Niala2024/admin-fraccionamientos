@@ -8,30 +8,23 @@ import dj_database_url
 from dotenv import load_dotenv
 from corsheaders.defaults import default_headers
 
-# Cargar variables de entorno
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# --- 1. SEGURIDAD Y ENTORNO ---
-# Detectamos si estamos corriendo en Railway
+# --- 1. SEGURIDAD ---
 EN_PRODUCCION = 'RAILWAY_ENVIRONMENT' in os.environ
-
-# Clave secreta: En producción la toma de Railway, en local usa la default
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default')
-
-# 🛑 DEBUG: Se apaga automáticamente en la nube para proteger datos sensibles
 DEBUG = not EN_PRODUCCION
 
-# 🔒 ALLOWED_HOSTS: Solo permitimos tráfico legítimo
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',
-    '.railway.app', # Permite cualquier subdominio de railway
-    'admin-fraccionamientos-production.up.railway.app' # Tu dominio específico
+    '.railway.app',
+    'admin-fraccionamientos-production.up.railway.app'
 ]
 
-# --- 2. APLICACIONES INSTALADAS ---
+# --- 2. APPS ---
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -39,17 +32,14 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     
-    # ✅ CLOUDINARY (Debe ir antes de staticfiles)
     'cloudinary_storage',
     'django.contrib.staticfiles',
     'cloudinary',
 
-    # ✅ APPS DE TERCEROS
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
 
-    # ✅ TUS APPS
     'usuarios.apps.UsuariosConfig',
     'inmuebles',
     'seguridad',
@@ -75,12 +65,8 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [
-            # Intenta buscar en la carpeta original del build
-            os.path.join(BASE_DIR, '../frontend/dist'),
-            # RESPALDO: Intenta buscar en staticfiles (donde collectstatic mueve todo)
-            os.path.join(BASE_DIR, 'staticfiles'),
-        ],
+        # ✅ CORRECCIÓN 1: Ruta directa a frontend/dist (sin ..)
+        'DIRS': [os.path.join(BASE_DIR, 'frontend/dist')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -94,7 +80,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# --- 3. BASE DE DATOS ---
+# --- 3. DATABASE ---
 DATABASES = {
     'default': dj_database_url.config(
         default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
@@ -102,9 +88,8 @@ DATABASES = {
     )
 }
 
-# --- 4. USUARIO Y AUTH ---
+# --- 4. AUTH ---
 AUTH_USER_MODEL = 'usuarios.Usuario'
-
 AUTH_PASSWORD_VALIDATORS = [
     { 'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator', },
     { 'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', },
@@ -112,41 +97,34 @@ AUTH_PASSWORD_VALIDATORS = [
     { 'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator', },
 ]
 
-# --- 5. IDIOMA Y ZONA HORARIA ---
 LANGUAGE_CODE = 'es-mx'
 TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_TZ = True
 
-# --- 6. ARCHIVOS ESTÁTICOS Y MEDIA ---
-
-# ⚠️ CORRECCIÓN CRÍTICA: Debe empezar con barra /
+# --- 6. ESTÁTICOS (CORRECCIÓN CLAVE) ---
 STATIC_URL = '/static/' 
-
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-# ⚠️ CORRECCIÓN CRÍTICA: Ruta dinámica al frontend
+# ✅ CORRECCIÓN 2: Ruta directa a frontend/dist (sin ..)
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, '../frontend/dist'),
+    os.path.join(BASE_DIR, 'frontend/dist'),
 ]
 
-# WhiteNoise se encarga de servir estos archivos en producción
+# Usamos la versión segura de WhiteNoise para evitar error 500 si falta un archivo
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
-# Configuración de Cloudinary (Imágenes Persistentes)
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': os.getenv('CLOUDINARY_CLOUD_NAME'),
     'API_KEY': os.getenv('CLOUDINARY_API_KEY'),
     'API_SECRET': os.getenv('CLOUDINARY_API_SECRET'),
 }
-
-# Decirle a Django que use Cloudinary para los archivos media
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
-# --- 7. CONFIGURACIÓN SMTP2GO ---
+# --- EMAIL ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'mail.smtp2go.com'
 EMAIL_PORT = 443
@@ -156,39 +134,20 @@ EMAIL_HOST_USER = 'railwayapp'
 EMAIL_HOST_PASSWORD = os.getenv('SMTP2GO_PASSWORD')
 DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
 
-# --- 8. SEGURIDAD CORS Y CSRF ---
-
+# --- CORS ---
 CORS_ALLOW_ALL_ORIGINS = False
-
 CORS_ALLOWED_ORIGINS = [
     "https://admin-fraccionamientos-production.up.railway.app",
     "http://localhost:5173", 
     "http://127.0.0.1:5173"
 ]
-
-CSRF_TRUSTED_ORIGINS = [
-    'https://admin-fraccionamientos-production.up.railway.app'
-]
-
+CSRF_TRUSTED_ORIGINS = ['https://admin-fraccionamientos-production.up.railway.app']
 CORS_ALLOW_CREDENTIALS = False 
+CORS_ALLOW_HEADERS = list(default_headers) + ["content-disposition", "accept-encoding", "content-type", "accept", "origin", "authorization"]
 
-CORS_ALLOW_HEADERS = list(default_headers) + [
-    "content-disposition",
-    "accept-encoding",
-    "content-type",
-    "accept",
-    "origin",
-    "authorization",
-]
-
-# --- 9. CONFIGURACIÓN DRF ---
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
-    ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated', 
-    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': ['rest_framework.authentication.TokenAuthentication'],
+    'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50
 }

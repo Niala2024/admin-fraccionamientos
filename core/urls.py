@@ -5,7 +5,7 @@ from django.conf.urls.static import static
 from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
 
-# --- IMPORTACIONES QUE FALTABAN ---
+# --- IMPORTANTE: ESTA ES LA SECCIÓN QUE TE FALTABA ---
 from usuarios.views import UsuarioViewSet, LoginView, PerfilView
 from inmuebles.views import InmuebleViewSet, ReservacionAmenidadViewSet
 from finanzas.views import ReciboViewSet, PagoViewSet
@@ -17,7 +17,6 @@ from comunidad.views import (
 )
 
 router = DefaultRouter()
-# Rutas principales
 router.register(r'usuarios', UsuarioViewSet)
 router.register(r'inmuebles', InmuebleViewSet)
 router.register(r'reservaciones', ReservacionAmenidadViewSet)
@@ -38,14 +37,14 @@ router.register(r'config-comunidad', ConfiguracionComunidadViewSet, basename='co
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
+    
+    # ✅ Estas líneas requieren que 'LoginView' y 'PerfilView' estén importados arriba
     path('api/login/', LoginView.as_view(), name='login'),
     path('api/perfil/', PerfilView.as_view(), name='perfil'),
     
-    # Redirección para evitar error 404 del favicon
     path('favicon.ico', RedirectView.as_view(url='/static/favicon.ico', permanent=True)),
 ]
 
-# Configuración para servir imágenes (MEDIA)
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 else:
@@ -53,4 +52,3 @@ else:
     urlpatterns += [
         path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
     ]
-    # Configuración actualizada

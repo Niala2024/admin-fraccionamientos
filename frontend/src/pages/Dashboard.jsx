@@ -34,9 +34,9 @@ import WifiIcon from '@mui/icons-material/Wifi';
 import ReplyIcon from '@mui/icons-material/Reply'; 
 import CancelIcon from '@mui/icons-material/Cancel'; 
 import SecurityIcon from '@mui/icons-material/Security';
-import AssignmentIcon from '@mui/icons-material/Assignment'; // Icono Bitácora
-import EditNoteIcon from '@mui/icons-material/EditNote'; // Icono Editar
-import SaveIcon from '@mui/icons-material/Save'; // Icono Guardar
+import AssignmentIcon from '@mui/icons-material/Assignment'; 
+import EditNoteIcon from '@mui/icons-material/EditNote'; 
+import SaveIcon from '@mui/icons-material/Save'; 
 
 import { useNavigate } from 'react-router-dom';
 import QRCode from "react-qr-code"; 
@@ -49,10 +49,22 @@ function Dashboard() {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
   
-  // DATOS SESIÓN
+  // 🛑 CORRECCIÓN DE SESIÓN 🛑
+  // Usamos las claves correctas ('user_data' y 'casa_data') que guarda el Login actualizado.
   const token = localStorage.getItem('token');
-  const sessionUser = JSON.parse(localStorage.getItem('session_user') || '{}');
-  const sessionCasa = JSON.parse(localStorage.getItem('session_casa') || 'null');
+  
+  const sessionUser = JSON.parse(localStorage.getItem('user_data') || '{}');
+  
+  // Intentamos leer 'casa_data' (nuevo) y si no existe, 'session_casa' (viejo), por compatibilidad
+  const sessionCasa = JSON.parse(localStorage.getItem('casa_data') || localStorage.getItem('session_casa') || 'null');
+
+  // Validación de seguridad: Si no hay usuario cargado, volver al login
+  useEffect(() => {
+    if (!token || !sessionUser.id) {
+       // Si estamos cargando y falla la sesión, redirigir
+       // navigate('/'); 
+    }
+  }, [token, sessionUser, navigate]);
 
   const isGuard = sessionUser.rol && (sessionUser.rol.toLowerCase().includes('guardia') || sessionUser.rol.toLowerCase().includes('admin'));
 
@@ -78,7 +90,6 @@ function Dashboard() {
   const [openProveedor, setOpenProveedor] = useState(false); 
   const [openCaseta, setOpenCaseta] = useState(false); 
   const [openWifi, setOpenWifi] = useState(false); 
-  // ✅ MODAL BITÁCORA PROFESIONAL
   const [openBitacora, setOpenBitacora] = useState(false);
   
   const [scanResult, setScanResult] = useState(null);
@@ -103,7 +114,7 @@ function Dashboard() {
   const [fotoBitacora, setFotoBitacora] = useState(null);
   const [videoBitacora, setVideoBitacora] = useState(null);
   const [formProv, setFormProv] = useState({ empresa: '', chofer: '', placas: '', casa_id: '' });
-  const [nuevoReporte, setNuevoReporte] = useState(''); // Usado en el editor de bitácora
+  const [nuevoReporte, setNuevoReporte] = useState(''); 
   const [listaCasas, setListaCasas] = useState([]);
 
   // Reloj
@@ -191,7 +202,9 @@ function Dashboard() {
   const handleLogout = () => { localStorage.clear(); navigate('/'); };
 
   const handleCrearVisitaRapida = async () => {
-      if(!sessionCasa) return enqueueSnackbar("Error: No tienes casa asignada.", {variant:'error'});
+      // Validación de seguridad para que no truene si sessionCasa es null
+      if(!sessionCasa) return enqueueSnackbar("Error: No tienes casa asignada. Cierra sesión y entra de nuevo.", {variant:'error'});
+      
       if(!formVisitaRapida.nombre) return enqueueSnackbar("Falta nombre.", {variant:'warning'});
       const today = new Date();
       const fechaHoy = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
@@ -259,7 +272,6 @@ function Dashboard() {
       } else { if(scannerRef.current) { scannerRef.current.clear().catch(()=>{}); scannerRef.current=null; } }
   }, [openScanner, isGuard]);
 
-  // ✅ GUARDAR NOVEDAD (Ahora refresca el modal)
   const handleGuardarReporteDiario = async () => { 
       if(!nuevoReporte.trim()) return; 
       try{
@@ -317,7 +329,7 @@ function Dashboard() {
                             </Box>
                         </Paper>
 
-                        {/* ✅ BOTÓN DE BITÁCORA (REEMPLAZA A LA CAJA PEQUEÑA) */}
+                        {/* ✅ BOTÓN DE BITÁCORA */}
                         <Card 
                             onClick={() => setOpenBitacora(true)} 
                             sx={{ 
@@ -335,7 +347,6 @@ function Dashboard() {
 
                     </Grid>
                     
-                    {/* COLUMNA CENTRAL Y DERECHA (SIN CAMBIOS DE LÓGICA) */}
                     <Grid size={{ xs: 12, md: 5 }} sx={{ height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
                         <Paper sx={{ p: 1.5, bgcolor: darkTheme.card, borderRadius: 2, border: `1px solid ${darkTheme.border}` }}><Typography variant="caption" color={darkTheme.textSec} fontWeight="bold">ACCESO MANUAL</Typography><Grid container spacing={1} sx={{mt:0.5}}>{[{label: 'Paquetería', icon: <LocalShippingIcon/>, color: '#0ea5e9'}, {label: 'Servicios', icon: <BoltIcon/>, color: '#22c55e'}, {label: 'Agua/Gas', icon: <WaterDropIcon/>, color: '#3b82f6'}, {label: 'Visita', icon: <AddCircleIcon/>, color: '#f97316'}].map((btn) => (<Grid size={{ xs: 3 }} key={btn.label}><Button fullWidth variant="contained" onClick={() => handleAbrirProveedor(btn.label)} sx={{ bgcolor: '#334155', color: 'white', flexDirection: 'column', py: 1, fontSize: '0.7rem', '&:hover': { bgcolor: btn.color } }}>{btn.icon} {btn.label}</Button></Grid>))}</Grid></Paper>
                         <Paper sx={{ flexGrow: 1, bgcolor: darkTheme.card, borderRadius: 2, border: `1px solid ${darkTheme.border}`, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}><Box sx={{ p: 1.5, bgcolor: '#0f172a', borderBottom: `1px solid ${darkTheme.border}` }}><Typography variant="subtitle1" fontWeight="bold" color="#38bdf8">📡 MONITOR EN VIVO</Typography></Box><TableContainer sx={{ flexGrow: 1, overflowY: 'auto' }}><Table stickyHeader size="small"><TableHead><TableRow><TableCell sx={{bgcolor: '#1e293b', color: '#94a3b8', py: 1}}>Quién</TableCell><TableCell sx={{bgcolor: '#1e293b', color: '#94a3b8', py: 1}}>Destino</TableCell><TableCell sx={{bgcolor: '#1e293b', color: '#94a3b8', py: 1}}>Hora</TableCell></TableRow></TableHead><TableBody>{actividadCombinada.map((row) => (<TableRow key={row.id}><TableCell sx={{color: 'white', borderBottom:'1px solid #334155', py: 1}}><Typography variant="body2" fontWeight="bold">{row.nombre}</Typography><Typography variant="caption" sx={{color: '#64748b'}}>{row.tipo}</Typography></TableCell><TableCell sx={{color: '#cbd5e1', borderBottom:'1px solid #334155', py: 1}}>{row.destino}</TableCell><TableCell sx={{color: '#cbd5e1', borderBottom:'1px solid #334155', py: 1, fontFamily:'monospace'}}>{new Date(row.entrada).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</TableCell></TableRow>))}</TableBody></Table></TableContainer></Paper>
@@ -346,14 +357,13 @@ function Dashboard() {
                 </Grid>
             </Container>
 
-            {/* ✅ MODAL BITÁCORA PROFESIONAL (ESTILO EDITOR) */}
+            {/* ✅ MODAL BITÁCORA */}
             <Dialog open={openBitacora} onClose={() => setOpenBitacora(false)} fullWidth maxWidth="md" PaperProps={{sx:{bgcolor: darkTheme.bg, color:'white', border: `1px solid ${darkTheme.border}`}}}>
                 <DialogTitle sx={{bgcolor: '#0f172a', display:'flex', alignItems:'center', gap:1}}>
                     <AssignmentIcon sx={{color:'#facc15'}}/> BITÁCORA OPERATIVA DEL DÍA
                 </DialogTitle>
                 <DialogContent sx={{p:0}}>
                     <Grid container sx={{height: '500px'}}>
-                        {/* IZQUIERDA: TIMELINE */}
                         <Grid size={{ xs: 12, md: 7 }} sx={{borderRight: `1px solid ${darkTheme.border}`, overflowY:'auto', p:2}}>
                             <Typography variant="caption" color="gray" sx={{mb:2, display:'block'}}>HISTORIAL DEL TURNO</Typography>
                             {reportesDiarios.map(r => (
@@ -374,7 +384,6 @@ function Dashboard() {
                             ))}
                         </Grid>
                         
-                        {/* DERECHA: EDITOR */}
                         <Grid size={{ xs: 12, md: 5 }} sx={{bgcolor: '#1e293b', p: 3, display:'flex', flexDirection:'column'}}>
                             <Typography variant="h6" sx={{mb:2, color:'white'}}>Nueva Entrada</Typography>
                             <TextField 
@@ -404,21 +413,19 @@ function Dashboard() {
                 </DialogActions>
             </Dialog>
 
-            {/* ... Resto de modales (Scanner, Proveedor, Caseta) ... */}
             <Dialog open={openScanner} onClose={() => setOpenScanner(false)} fullWidth maxWidth="sm" PaperProps={{sx:{bgcolor: darkTheme.card, color:'white'}}}><DialogTitle sx={{bgcolor: '#0f172a'}}>Escáner de Acceso</DialogTitle><DialogContent sx={{ textAlign: 'center', p: 3 }}><div id="reader-dashboard" style={{ width: '100%', minHeight: '300px', backgroundColor: 'white', borderRadius: 8 }}></div>{scanResult && <Card sx={{ mt: 2, bgcolor: scanResult.tipo.includes('ENTRADA') ? '#14532d' : '#7f1d1d', color: 'white' }}><CardContent><Typography variant="h5" fontWeight="bold">{scanResult.mensaje}</Typography></CardContent></Card>}</DialogContent><DialogActions sx={{bgcolor: '#0f172a'}}><Button onClick={() => setOpenScanner(false)} variant="contained" color="error">Cerrar</Button></DialogActions></Dialog>
             <Dialog open={openProveedor} onClose={()=>setOpenProveedor(false)} fullWidth maxWidth="sm" PaperProps={{sx:{bgcolor: darkTheme.card, color:'white'}}}><DialogTitle sx={{bgcolor: '#0f172a'}}>Entrada: {formProv.empresa}</DialogTitle><DialogContent sx={{pt: 2}}><TextField fullWidth label="Nombre / Chofer" variant="filled" value={formProv.chofer} onChange={(e)=>setFormProv({...formProv, chofer:e.target.value})} sx={{bgcolor:'#0f172a', borderRadius:1, mb:2, input:{color:'white'}, label:{color:'#94a3b8'}}} /><TextField fullWidth label="Placas" variant="filled" value={formProv.placas} onChange={(e)=>setFormProv({...formProv, placas:e.target.value})} sx={{bgcolor:'#0f172a', borderRadius:1, mb:2, input:{color:'white'}, label:{color:'#94a3b8'}}} /><FormControl fullWidth variant="filled" sx={{bgcolor:'#0f172a', borderRadius:1}}><InputLabel sx={{color:'#94a3b8'}}>Casa Destino</InputLabel><Select value={formProv.casa_id} onChange={(e)=>setFormProv({...formProv, casa_id:e.target.value})} sx={{color:'white'}}>{listaCasas.map(c => <MenuItem key={c.id} value={c.id}>Lote {c.numero_exterior} - {c.calle_nombre}</MenuItem>)}</Select></FormControl></DialogContent><DialogActions sx={{bgcolor: '#0f172a'}}><Button onClick={()=>setOpenProveedor(false)} color="inherit">Cancelar</Button><Button onClick={handleRegistrarProveedor} variant="contained" color="success">Registrar</Button></DialogActions></Dialog>
         </Box>
       );
   }
 
-  // --- VISTA RESIDENTE (Se mantiene igual, no se toca) ---
+  // --- VISTA RESIDENTE ---
   return (
     <Box sx={{ flexGrow: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#f5f5f5' }}>
-      {/* ... Copiar exactamente el mismo return del residente que ya tenías funcional ... */}
       <AppBar position="static" elevation={0} sx={{ bgcolor: 'white', color: '#333', borderBottom: '1px solid #e0e0e0' }}>
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 'bold', color: '#1976d2' }}>
-            Hola, {sessionUser?.nombre || 'Vecino'} {sessionCasa ? `(${sessionCasa.calle} #${sessionCasa.numero})` : ''} 👋
+            Hola, {sessionUser?.first_name || sessionUser?.username || 'Vecino'} {sessionCasa ? `(${sessionCasa.calle} #${sessionCasa.numero})` : ''} 👋
           </Typography>
           <Button color="inherit" startIcon={<ForumIcon />} onClick={()=>navigate('/comunidad')}>Comunidad</Button> 
           <Button color="inherit" startIcon={<StorefrontIcon />} onClick={()=>navigate('/directorio')}>Directorio</Button>

@@ -40,19 +40,29 @@ function MiPerfil() {
   const [showPass, setShowPass] = useState(false);
 
   // Cargar datos al iniciar
+  // Cargar datos al iniciar
   useEffect(() => {
     const cargarPerfil = async () => {
         const userStr = localStorage.getItem('user_data');
         if (!userStr) { navigate('/'); return; }
         
         const userData = JSON.parse(userStr);
+        
+        // 🛑 VALIDACIÓN DE SEGURIDAD
+        if (!userData.id) {
+            enqueueSnackbar("Error de sesión: ID no encontrado. Reingresa.", { variant: 'error' });
+            return;
+        }
+
         try {
-            const res = await api.get(`/api/usuarios/${userData.user_id}/`, {
+            // ✅ CORRECCIÓN: Usamos 'userData.id' en lugar de 'userData.user_id'
+            const res = await api.get(`/api/usuarios/${userData.id}/`, {
                 headers: { Authorization: `Token ${localStorage.getItem('token')}` }
             });
             setPerfil(res.data);
             setAvatarPreview(res.data.avatar); 
         } catch (error) {
+            console.error("Error perfil:", error);
             enqueueSnackbar("Error cargando perfil", { variant: 'error' });
         }
     };

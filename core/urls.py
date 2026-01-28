@@ -49,7 +49,13 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
+else:
+    # Truco para que funcione en Railway sin configurar S3 (solo para demostración)
+    # En producción real se debe usar WhiteNoise o S3, pero esto activará las imágenes ahora.
+    from django.views.static import serve
+    urlpatterns += [
+        path('media/<path:path>', serve, {'document_root': settings.MEDIA_ROOT}),
+    ]
 # ✅ RESTAURADO: Usamos TemplateView simple. 
 # Como ya pusimos la ruta correcta en settings.py ('/app/frontend/dist'), esto funcionará.
 urlpatterns += [

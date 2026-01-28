@@ -23,24 +23,23 @@ class IsOwnerOrAdmin(permissions.BasePermission):
         return autor == request.user or request.user.is_staff
 
 class ConfiguracionComunidadViewSet(viewsets.ViewSet):
-    # ✅ CAMBIO: Usamos 'IsAuthenticatedOrReadOnly' para que NO bloquee la carga (GET)
-    # pero sí pida login para editar (POST).
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def list(self, request):
         config = ConfiguracionComunidad.objects.first()
         if not config:
             return Response({})
-        serializer = ConfiguracionComunidadSerializer(config)
+        # ✅ CAMBIO: Agregamos context={'request': request} para URL absoluta
+        serializer = ConfiguracionComunidadSerializer(config, context={'request': request})
         return Response(serializer.data)
 
     def create(self, request):
-        # Este endpoint funciona como "Crear o Actualizar" (Singleton)
         config = ConfiguracionComunidad.objects.first()
+        # ✅ CAMBIO: Agregamos context={'request': request} aquí también
         if config:
-            serializer = ConfiguracionComunidadSerializer(config, data=request.data, partial=True)
+            serializer = ConfiguracionComunidadSerializer(config, data=request.data, partial=True, context={'request': request})
         else:
-            serializer = ConfiguracionComunidadSerializer(data=request.data)
+            serializer = ConfiguracionComunidadSerializer(data=request.data, context={'request': request})
         
         if serializer.is_valid():
             serializer.save()
@@ -95,7 +94,6 @@ class AvisoViewSet(viewsets.ModelViewSet):
     serializer_class = AvisoSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    # ✅ CAMBIO: Agregamos de vuelta la acción 'ultimo' que faltaba
     @action(detail=False, methods=['get'])
     def ultimo(self, request):
         aviso = self.queryset.first()

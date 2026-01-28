@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.db.models import Q
 from datetime import timedelta 
-from django.apps import apps # ✅ Necesario para buscar la casa sin romper nada
+from django.apps import apps # ✅ CLAVE: Permite buscar la casa sin errores de importación
 
 from .models import Visita, Trabajador, AccesoTrabajador, Bitacora, ReporteDiario, MensajeChat
 from .serializers import (
@@ -107,28 +107,27 @@ class VisitaViewSet(viewsets.ModelViewSet):
     serializer_class = VisitaSerializer
 
     def perform_create(self, serializer): 
-        # ✅ LÓGICA RECUPERADA: BÚSQUEDA INTELIGENTE DE CASA
+        # ✅ LÓGICA DE DETECCIÓN AUTOMÁTICA DE CASA
         user = self.request.user
         casa_obj = None
 
-        # 1. Opción A: El usuario tiene el campo 'casa' directo en su perfil
+        # 1. Busca si el objeto usuario ya tiene la casa cargada (Tu caso en la foto)
         if hasattr(user, 'casa') and user.casa:
             casa_obj = user.casa
         
-        # 2. Opción B: El usuario es 'propietario' en la tabla Casa (Tu caso actual)
+        # 2. Si no, busca en la tabla Casa si este usuario es el 'propietario'
         if not casa_obj:
             try:
-                # Cargamos el modelo dinámicamente para evitar errores
                 Casa = apps.get_model('inmuebles', 'Casa')
                 casa_obj = Casa.objects.filter(propietario=user).first()
             except Exception:
                 pass
 
-        # 3. Guardamos la visita asignando la casa encontrada
+        # 3. Guarda la visita asignando la casa encontrada
         if casa_obj:
             serializer.save(creado_por=user, casa=casa_obj)
         else:
-            # Si sigue sin encontrar (ej. es admin), guarda solo el creador
+            # Si no hay casa (ej. es un guardia creando visita), se guarda sin casa
             serializer.save(creado_por=user)
     
     @action(detail=False, methods=['get'])
@@ -144,12 +143,14 @@ class TrabajadorViewSet(viewsets.ModelViewSet):
         # ✅ Misma lógica inteligente para trabajadores
         user = self.request.user
         casa_id = self.request.data.get('casa')
-        casa_obj = None
-
+        
+        # Si el frontend manda la casa explícitamente, úsala
         if casa_id: 
             serializer.save(casa_id=casa_id)
             return
 
+        # Si no, búscala automáticamente
+        casa_obj = None
         if hasattr(user, 'casa') and user.casa:
             casa_obj = user.casa
         
@@ -174,9 +175,8 @@ class BitacoraViewSet(viewsets.ModelViewSet):
             ayer = timezone.now() - timezone.timedelta(hours=24)
             qs = qs.filter(fecha__gte=ayer).order_by('-fecha')
         return qs
-    # ✅ IMPORTANTE: Aquí se procesan las FOTOS y VIDEOS de la bitácora
-    # Como ya configuramos Cloudinary en settings.py, esto funcionará automático.
     def perform_create(self, serializer): 
+        # Asigna el autor (Guardia) automáticamente
         serializer.save(autor=self.request.user)
 
 class ReporteAccesosView(APIView):

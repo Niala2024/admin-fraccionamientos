@@ -24,11 +24,11 @@ import PersonIcon from '@mui/icons-material/Person';
 import LocalShippingIcon from '@mui/icons-material/LocalShipping';
 import LocalTaxiIcon from '@mui/icons-material/LocalTaxi';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'; 
-import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash'; // Icono Desarchivar
+import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import EngineeringIcon from '@mui/icons-material/Engineering';
 import BadgeIcon from '@mui/icons-material/Badge';
-import ArchiveIcon from '@mui/icons-material/Archive'; // Icono ver archivados
+import ArchiveIcon from '@mui/icons-material/Archive';
 
 import api from '../api/axiosConfig';
 
@@ -48,6 +48,22 @@ const themeColors = {
     chatVecino: '#334155'   
 };
 
+// ✅ CORRECCIÓN IMPORTANTE: 
+// El componente CustomTextField debe estar AFUERA de la función principal
+// para evitar que pierda el foco o cierre el select al escribir.
+const CustomTextField = (props) => (
+  <TextField {...props} variant="outlined" fullWidth 
+    sx={{ 
+        '& .MuiOutlinedInput-root': { color: themeColors.textPrimary, bgcolor: themeColors.bgLight, borderRadius: 2 },
+        '& .MuiInputLabel-root': { color: themeColors.textSecondary },
+        '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
+        '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: themeColors.accent },
+        '& .MuiSelect-icon': { color: themeColors.textSecondary }, 
+         ...props.sx
+    }} 
+  />
+);
+
 function Caseta() {
   const navigate = useNavigate();
   const { enqueueSnackbar } = useSnackbar();
@@ -65,7 +81,7 @@ function Caseta() {
   const [chatActivo, setChatActivo] = useState(null);
   const [mensajes, setMensajes] = useState([]);
   const [nuevoMensaje, setNuevoMensaje] = useState('');
-  const [verArchivados, setVerArchivados] = useState(false); // ✅ Toggle Archivados
+  const [verArchivados, setVerArchivados] = useState(false);
   
   const [formManual, setFormManual] = useState({ nombre: '', destino: '', tipo: 'Visita', placas: '' });
   const [incidente, setIncidente] = useState('');
@@ -80,7 +96,7 @@ function Caseta() {
         if (chatActivo) cargarChat(chatActivo.id);
     }, 5000);
     return () => { clearInterval(timer); clearInterval(dataInterval); };
-  }, [chatActivo, verArchivados]); // Se recarga si cambia el modo archivados
+  }, [chatActivo, verArchivados]);
 
   const cargarDatos = async () => {
     try {
@@ -125,7 +141,6 @@ function Caseta() {
   // --- LÓGICA CHAT ---
   const cargarChat = async (userId) => {
     try { 
-        // Solicitamos con el filtro de archivados activo
         const res = await api.get(`/api/chat/?usuario=${userId}&archivados=${verArchivados}`); 
         setMensajes(res.data.results || res.data); 
     } catch(e){}
@@ -139,12 +154,10 @@ function Caseta() {
     catch(e) { enqueueSnackbar('Error enviando', {variant:'error'}); }
   };
 
-  // ✅ ARCHIVAR / DESARCHIVAR
   const handleToggleArchivo = async (mensajeId, esArchivar) => {
       try {
           const endpoint = esArchivar ? 'archivar' : 'desarchivar';
           await api.patch(`/api/chat/${mensajeId}/${endpoint}/`);
-          // Lo quitamos de la vista actual
           setMensajes(prev => prev.filter(m => m.id !== mensajeId));
           enqueueSnackbar(esArchivar ? 'Mensaje archivado' : 'Mensaje restaurado', { variant: 'success', autoHideDuration: 1000 });
       } catch (error) {
@@ -194,20 +207,6 @@ function Caseta() {
       return <DirectionsCarIcon color="primary"/>;
   };
 
-  // Componente de Texto Personalizado
-  const CustomTextField = (props) => (
-      <TextField {...props} variant="outlined" fullWidth 
-        sx={{ 
-            '& .MuiOutlinedInput-root': { color: themeColors.textPrimary, bgcolor: themeColors.bgLight, borderRadius: 2 },
-            '& .MuiInputLabel-root': { color: themeColors.textSecondary },
-            '& .MuiOutlinedInput-notchedOutline': { borderColor: 'transparent' },
-            '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: themeColors.accent },
-            '& .MuiSelect-icon': { color: themeColors.textSecondary }, // Icono del select blanco
-             ...props.sx
-        }} 
-      />
-  );
-
   return (
     <Box sx={{ flexGrow: 1, height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: themeColors.bgMain, overflow:'hidden' }}>
       
@@ -224,7 +223,7 @@ function Caseta() {
         </Toolbar>
       </AppBar>
 
-      {/* Grid Principal con tamaños Fijos para que no se mueva el chat */}
+      {/* Grid Principal */}
       <Grid container spacing={2} sx={{ flexGrow: 1, p: 2, overflow: 'hidden' }}>
         
         {/* COLUMNA 1: MONITOREO */}
@@ -254,6 +253,9 @@ function Caseta() {
                                     <Chip label={item.destino} size="small" sx={{ bgcolor: themeColors.bgPaper, color: themeColors.textSecondary, fontSize: '0.7rem', height: 20, maxWidth: '60%' }} />
                                     <Button size="small" variant="contained" color="error" onClick={()=>handleSalida(item)} sx={{fontSize:'0.7rem', py:0.2, borderRadius:1.5, textTransform:'none'}}>Salida</Button>
                                 </Box>
+                                <Typography variant="caption" sx={{color: themeColors.textSecondary, fontSize:'0.6rem', mt:0.5, display:'block', textAlign:'right'}}>
+                                    Entrada: {new Date(item.fecha_entrada).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                                </Typography>
                             </CardContent>
                         </Card>
                     ))}
@@ -261,7 +263,7 @@ function Caseta() {
             </Paper>
         </Grid>
 
-        {/* COLUMNA 2: ACCIÓN PRINCIPAL (Ancho fijo para no empujar) */}
+        {/* COLUMNA 2: ACCIÓN PRINCIPAL */}
         <Grid item xs={12} md={5} lg={6} sx={{ height: '100%' }}>
            <Paper elevation={2} sx={{ height: '100%', bgcolor: themeColors.bgPaper, borderRadius: 3, display:'flex', flexDirection:'column', overflow:'hidden' }}>
              <Tabs value={tabActionIndex} onChange={(e,v)=>setTabActionIndex(v)} centered 
@@ -284,15 +286,17 @@ function Caseta() {
                     </Box>
                 )}
 
+                {/* ✅ DISEÑO VERTICAL (Todos xs=12) */}
                 {tabActionIndex === 1 && (
-                    <Box maxWidth="md" mx="auto" width="100%">
+                    <Box maxWidth="sm" mx="auto" width="100%">
                         <Box mb={3} textAlign="center">
                             <Typography variant="h6" color={themeColors.accent} fontWeight="bold">Nuevo Ingreso Manual</Typography>
                         </Box>
-                        <Grid container spacing={2.5}>
-                            <Grid item xs={12} md={7}><CustomTextField label="Nombre del Conductor / Visitante" value={formManual.nombre} onChange={e=>setFormManual({...formManual, nombre:e.target.value})} InputProps={{startAdornment: <InputAdornment position="start"><PersonIcon sx={{color:themeColors.textSecondary}}/></InputAdornment>}} /></Grid>
-                            <Grid item xs={12} md={5}>
-                                {/* ✅ CORRECCIÓN: Select con MenuItem explicito */}
+                        <Grid container spacing={2}>
+                            <Grid item xs={12}>
+                                <CustomTextField label="Nombre del Conductor / Visitante" value={formManual.nombre} onChange={e=>setFormManual({...formManual, nombre:e.target.value})} InputProps={{startAdornment: <InputAdornment position="start"><PersonIcon sx={{color:themeColors.textSecondary}}/></InputAdornment>}} />
+                            </Grid>
+                            <Grid item xs={12}>
                                 <CustomTextField select label="Tipo de Visita" value={formManual.tipo} onChange={e=>setFormManual({...formManual, tipo:e.target.value})}>
                                     <MenuItem value="Visita">Visita Social</MenuItem>
                                     <MenuItem value="Proveedor">Proveedor / Servicio</MenuItem>
@@ -304,8 +308,12 @@ function Caseta() {
                                     <MenuItem value="Otro">Otro</MenuItem>
                                 </CustomTextField>
                             </Grid>
-                            <Grid item xs={12} md={6}><CustomTextField label="Placas del Vehículo" value={formManual.placas} onChange={e=>setFormManual({...formManual, placas:e.target.value})} InputProps={{startAdornment: <InputAdornment position="start"><DirectionsCarIcon sx={{color:themeColors.textSecondary}}/></InputAdornment>}}/></Grid>
-                            <Grid item xs={12} md={6}><CustomTextField label="Destino (Casa / Calle)" value={formManual.destino} onChange={e=>setFormManual({...formManual, destino:e.target.value})}/></Grid>
+                            <Grid item xs={12}>
+                                <CustomTextField label="Placas del Vehículo" value={formManual.placas} onChange={e=>setFormManual({...formManual, placas:e.target.value})} InputProps={{startAdornment: <InputAdornment position="start"><DirectionsCarIcon sx={{color:themeColors.textSecondary}}/></InputAdornment>}}/>
+                            </Grid>
+                            <Grid item xs={12}>
+                                <CustomTextField label="Destino (Casa / Calle)" value={formManual.destino} onChange={e=>setFormManual({...formManual, destino:e.target.value})}/>
+                            </Grid>
                             <Grid item xs={12}>
                                 <Button fullWidth variant="contained" size="large" sx={{bgcolor:themeColors.accent, color:'white', py:1.8, borderRadius: 2, fontSize:'1.1rem', '&:hover':{bgcolor:themeColors.accentHover}}} onClick={handleRegistroManual} startIcon={<SecurityIcon/>}>AUTORIZAR INGRESO</Button>
                             </Grid>
@@ -323,7 +331,7 @@ function Caseta() {
            </Paper>
         </Grid>
 
-        {/* COLUMNA 3: COMUNICACIÓN (Ancho fijo) */}
+        {/* COLUMNA 3: COMUNICACIÓN */}
         <Grid item xs={12} md={4} lg={3.5} sx={{ height: '100%' }}>
             <Paper elevation={2} sx={{ height: '100%', bgcolor: themeColors.bgPaper, borderRadius: 3, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 <Box sx={{ p: 2, borderBottom: `1px solid ${themeColors.bgLight}`, bgcolor: chatActivo ? themeColors.chatGuardia + '20' : 'transparent', display:'flex', alignItems:'center', justifyContent: 'space-between' }}>
@@ -339,7 +347,6 @@ function Caseta() {
                         <Typography variant="subtitle1" fontWeight="bold" color={themeColors.textPrimary}>Comunicación</Typography>
                     )}
 
-                    {/* ✅ Toggle Ver Archivados */}
                     {chatActivo && (
                          <Tooltip title={verArchivados ? "Ver Mensajes Activos" : "Ver Archivados"}>
                             <IconButton onClick={() => setVerArchivados(!verArchivados)} sx={{color: verArchivados ? themeColors.warning : themeColors.textSecondary}}>
@@ -378,7 +385,6 @@ function Caseta() {
                                             <Typography variant="body2" sx={{whiteSpace: 'pre-wrap', fontSize:'0.9rem'}}>{msg.mensaje}</Typography>
                                             <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', opacity: 0.7, fontSize: '0.65rem', mt: 0.5 }}>{new Date(msg.fecha).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</Typography>
                                             
-                                            {/* ✅ BOTÓN ARCHIVAR / DESARCHIVAR */}
                                             <Tooltip title={verArchivados ? "Restaurar" : "Archivar"}>
                                                 <IconButton 
                                                     className="archive-btn"
@@ -395,7 +401,6 @@ function Caseta() {
                                 <div ref={chatBottomRef} />
                             </Box>
                             
-                            {/* Input solo visible si no estamos viendo archivados */}
                             {!verArchivados && (
                                 <Box sx={{ p: 1.5, bgcolor: themeColors.bgPaper, borderTop: `1px solid ${themeColors.bgLight}`, display: 'flex', alignItems:'center' }}>
                                     <CustomTextField fullWidth size="small" placeholder="Responder..." value={nuevoMensaje} onChange={(e) => setNuevoMensaje(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && enviarMensaje()} sx={{ mr: 1, '& .MuiOutlinedInput-root': { borderRadius: 4, bgcolor: themeColors.bgLight } }} />

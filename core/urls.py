@@ -6,13 +6,9 @@ from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
 
 # --- VISTAS ---
-# 1. Usuarios (Descomentamos Login y Perfil porque ya funcionan)
 from usuarios.views import UsuarioViewSet, LoginView, PerfilView
-
-# 2. Inmuebles (CORREGIDO: Importamos lo que realmente tienes en tu código)
+# ✅ CORRECCIÓN: Aquí importamos CasaViewSet (que sí existe)
 from inmuebles.views import CasaViewSet, FraccionamientoViewSet, CalleViewSet
-
-# 3. Otras Apps
 from finanzas.views import ReciboViewSet, PagoViewSet
 from seguridad.views import TrabajadorViewSet, VisitaViewSet
 from servicios.views import SolicitudServicioViewSet
@@ -22,16 +18,12 @@ from comunidad.views import (
 )
 
 router = DefaultRouter()
-
-# --- RUTAS ---
 router.register(r'usuarios', UsuarioViewSet)
 
-# CORREGIDO: Usamos CasaViewSet en lugar de InmuebleViewSet
+# ✅ CORRECCIÓN: Conectamos la ruta 'inmuebles' con 'CasaViewSet'
 router.register(r'inmuebles', CasaViewSet)
 router.register(r'fraccionamientos', FraccionamientoViewSet, basename='fraccionamientos')
 router.register(r'calles', CalleViewSet)
-
-# (Aquí quitamos reservaciones porque ya no existen)
 
 router.register(r'recibos', ReciboViewSet)
 router.register(r'pagos', PagoViewSet)
@@ -50,11 +42,8 @@ router.register(r'config-comunidad', ConfiguracionComunidadViewSet, basename='co
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
-    
-    # Reactivamos el login y perfil
     path('api/login/', LoginView.as_view(), name='login'),
     path('api/perfil/', PerfilView.as_view(), name='perfil'),
-    
     path('favicon.ico', RedirectView.as_view(url='/static/favicon.ico', permanent=True)),
 ]
 

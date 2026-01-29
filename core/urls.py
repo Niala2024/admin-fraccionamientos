@@ -41,14 +41,18 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
     
-    # ✅ ESTA ES LA RUTA QUE TU LOGIN.JSX BUSCA
+    # ✅ RUTA DEL LOGIN (Vital para tu Frontend)
     path('api/api-token-auth/', CustomAuthToken.as_view(), name='api_token_auth'),
     
     path('api/generar-reporte/', ReporteFinancieroView.as_view(), name='generar_reporte'),
     path('api/reporte-accesos/', ReporteAccesosView.as_view(), name='reporte_accesos'),
     
-    # Favicon para evitar error 404
+    # Favicon
     path('favicon.ico', RedirectView.as_view(url='/static/favicon.ico', permanent=True)),
+
+    # ✅ ESTA ES LA LÍNEA NUEVA QUE FALTA:
+    # Atrapa cualquier otra ruta y carga React (Login.jsx)
+    re_path(r'^.*$', TemplateView.as_view(template_name='index.html')),
 ]
 
 if settings.DEBUG:

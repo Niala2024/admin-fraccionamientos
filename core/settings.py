@@ -1,6 +1,6 @@
 """
 Django settings for core project.
-Configuración Restaurada: Basada en tu respaldo funcional.
+Configuración Final: HARDENING DE SEGURIDAD (Producción).
 """
 from pathlib import Path
 import os
@@ -10,10 +10,9 @@ from corsheaders.defaults import default_headers
 
 load_dotenv()
 
-# BASE_DIR apunta a donde está manage.py
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# --- 1. SEGURIDAD ---
+# --- SEGURIDAD ---
 EN_PRODUCCION = 'RAILWAY_ENVIRONMENT' in os.environ
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-clave-default')
 DEBUG = not EN_PRODUCCION
@@ -25,7 +24,7 @@ ALLOWED_HOSTS = [
     'admin-fraccionamientos-production.up.railway.app'
 ]
 
-# --- 2. APPS ---
+# --- APPS ---
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -33,14 +32,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # Apps de Terceros
     'cloudinary_storage',
     'cloudinary',
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
-    # Tus Apps
-    'usuarios.apps.UsuariosConfig',
+    'usuarios',
     'inmuebles',
     'seguridad',
     'finanzas',
@@ -65,7 +62,6 @@ ROOT_URLCONF = 'core.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        # ✅ RESTAURADO: Usamos la ruta absoluta que te funcionaba
         'DIRS': [os.path.join(BASE_DIR, 'frontend/dist')],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -80,7 +76,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'core.wsgi.application'
 
-# --- 3. DATABASE ---
 DATABASES = {
     'default': dj_database_url.config(
         default='sqlite:///' + str(BASE_DIR / 'db.sqlite3'),
@@ -88,8 +83,8 @@ DATABASES = {
     )
 }
 
-# --- 4. AUTH ---
 AUTH_USER_MODEL = 'usuarios.Usuario'
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -102,17 +97,9 @@ TIME_ZONE = 'America/Mexico_City'
 USE_I18N = True
 USE_TZ = True
 
-# --- 6. ESTÁTICOS ---
-# ✅ CORRECCIÓN CRÍTICA: Debe tener la barra inicial '/static/' (tu respaldo tenía 'static/')
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-
-# ✅ RESTAURADO: Usamos la ruta absoluta que te funcionaba
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'frontend/dist'),
-]
-
-# ✅ SEGURIDAD: Usamos este storage para que no falle si falta un archivo pequeño
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'frontend/dist')]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 MEDIA_URL = '/media/'
@@ -125,17 +112,15 @@ CLOUDINARY_STORAGE = {
 }
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
-# --- EMAIL ---
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'mail.smtp2go.com'
-EMAIL_PORT = 443
-EMAIL_USE_SSL = True
-EMAIL_USE_TLS = False
+EMAIL_PORT = 2525
+EMAIL_USE_SSL = False
+EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'railwayapp'
 EMAIL_HOST_PASSWORD = os.getenv('SMTP2GO_PASSWORD')
 DEFAULT_FROM_EMAIL = "Administración <admicountry@hotmail.com>"
 
-# --- CORS ---
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "https://admin-fraccionamientos-production.up.railway.app",
@@ -154,7 +139,3 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 50
 }
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-# Configuración actualizada

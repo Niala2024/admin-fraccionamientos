@@ -11,13 +11,10 @@ class FraccionamientoViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if user.is_superuser:
             return Fraccionamiento.objects.all().order_by('nombre')
-        
         if hasattr(user, 'fraccionamiento_administrado') and user.fraccionamiento_administrado:
             return Fraccionamiento.objects.filter(id=user.fraccionamiento_administrado.id).order_by('nombre')
-            
         if hasattr(user, 'casa') and user.casa:
             return Fraccionamiento.objects.filter(id=user.casa.fraccionamiento.id).order_by('nombre')
-            
         return Fraccionamiento.objects.none()
 
     def create(self, request, *args, **kwargs):

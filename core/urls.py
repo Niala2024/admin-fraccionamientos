@@ -1,49 +1,53 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.generic import RedirectView
 from rest_framework.routers import DefaultRouter
+from django.views.generic import TemplateView, RedirectView
 
-# --- VISTAS ---
-from usuarios.views import UsuarioViewSet, LoginView, PerfilView
-# ✅ CORRECCIÓN: Aquí importamos CasaViewSet (que sí existe)
-from inmuebles.views import CasaViewSet, FraccionamientoViewSet, CalleViewSet
-from finanzas.views import ReciboViewSet, PagoViewSet
-from seguridad.views import TrabajadorViewSet, VisitaViewSet
-from servicios.views import SolicitudServicioViewSet
-from comunidad.views import (
-    EncuestaViewSet, PublicacionViewSet, QuejaViewSet, 
-    AvisoViewSet, ServicioExternoViewSet, ConfiguracionComunidadViewSet
+# --- TUS IMPORTS ORIGINALES ---
+from usuarios.views import UsuarioViewSet, CustomAuthToken
+from inmuebles.views import FraccionamientoViewSet, CasaViewSet, CalleViewSet
+from finanzas.views import PagoViewSet, TipoEgresoViewSet, EgresoViewSet, ReporteFinancieroView
+from comunidad.views import EncuestaViewSet, PublicacionViewSet, QuejaViewSet, AvisoViewSet, ServicioExternoViewSet
+from servicios.views import ServicioViewSet
+from seguridad.views import (
+    VisitaViewSet, BitacoraViewSet, TrabajadorViewSet, 
+    AccesoTrabajadorViewSet, ReporteAccesosView, 
+    ReporteDiarioViewSet, MensajeChatViewSet
 )
 
 router = DefaultRouter()
+router.register(r'fraccionamientos', FraccionamientoViewSet, basename='fraccionamiento')
 router.register(r'usuarios', UsuarioViewSet)
-
-# ✅ CORRECCIÓN: Conectamos la ruta 'inmuebles' con 'CasaViewSet'
-router.register(r'inmuebles', CasaViewSet)
-router.register(r'fraccionamientos', FraccionamientoViewSet, basename='fraccionamientos')
+router.register(r'casas', CasaViewSet)
 router.register(r'calles', CalleViewSet)
-
-router.register(r'recibos', ReciboViewSet)
 router.register(r'pagos', PagoViewSet)
-router.register(r'trabajadores', TrabajadorViewSet)
-router.register(r'visitas', VisitaViewSet)
-router.register(r'solicitudes', SolicitudServicioViewSet)
-
-# Comunidad
-router.register(r'foro', PublicacionViewSet, basename='foro')
+router.register(r'visitas', VisitaViewSet, basename='visita')
+router.register(r'trabajadores', TrabajadorViewSet, basename='trabajador')
+router.register(r'accesos-trabajadores', AccesoTrabajadorViewSet, basename='acceso_trabajador')
+router.register(r'bitacora', BitacoraViewSet)
+router.register(r'reportes-diarios', ReporteDiarioViewSet)
+router.register(r'chat', MensajeChatViewSet, basename='chat')
 router.register(r'encuestas', EncuestaViewSet)
-router.register(r'quejas', QuejaViewSet, basename='quejas')
+router.register(r'foro', PublicacionViewSet)
+router.register(r'quejas', QuejaViewSet, basename='queja')
 router.register(r'avisos', AvisoViewSet)
-router.register(r'servicios-externos', ServicioExternoViewSet)
-router.register(r'config-comunidad', ConfiguracionComunidadViewSet, basename='config-comunidad')
+router.register(r'tipos-egresos', TipoEgresoViewSet)
+router.register(r'egresos', EgresoViewSet)
+router.register(r'servicios', ServicioViewSet)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)),
-    path('api/login/', LoginView.as_view(), name='login'),
-    path('api/perfil/', PerfilView.as_view(), name='perfil'),
+    
+    # ✅ ESTA ES LA RUTA QUE TU LOGIN.JSX BUSCA
+    path('api/api-token-auth/', CustomAuthToken.as_view(), name='api_token_auth'),
+    
+    path('api/generar-reporte/', ReporteFinancieroView.as_view(), name='generar_reporte'),
+    path('api/reporte-accesos/', ReporteAccesosView.as_view(), name='reporte_accesos'),
+    
+    # Favicon para evitar error 404
     path('favicon.ico', RedirectView.as_view(url='/static/favicon.ico', permanent=True)),
 ]
 

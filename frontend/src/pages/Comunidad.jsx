@@ -2,22 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { 
   Container, Grid, Paper, Typography, Box, TextField, Button, 
   Avatar, IconButton, Card, CardHeader, CardContent, CardMedia, 
-  CardActions, Divider, CircularProgress, Tabs, Tab, Chip,
-  FormControl, RadioGroup, FormControlLabel, Radio, Tooltip, Fade,
-  LinearProgress, MenuItem, Select, InputLabel
+  CardActions, Divider, Tabs, Tab, Chip,
+  Radio, LinearProgress
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { useNavigate } from 'react-router-dom';
 
 // Iconos
-import SendIcon from '@mui/icons-material/Send';
-import PhotoCamera from '@mui/icons-material/PhotoCamera';
 import FavoriteBorderIcon from '@mui/icons-material/FavoriteBorder';
-import ChatBubbleOutlineIcon from '@mui/icons-material/ChatBubbleOutline';
 import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import StorefrontIcon from '@mui/icons-material/Storefront'; 
-import HandymanIcon from '@mui/icons-material/Handyman'; 
 import CampaignIcon from '@mui/icons-material/Campaign'; 
 import PollIcon from '@mui/icons-material/Poll'; 
 import ReportProblemIcon from '@mui/icons-material/ReportProblem'; 
@@ -28,6 +21,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import PieChartIcon from '@mui/icons-material/PieChart';
+import PhotoCamera from '@mui/icons-material/PhotoCamera';
 
 import api from '../api/axiosConfig'; 
 
@@ -51,7 +45,6 @@ function Comunidad() {
 
   // Estados Encuestas
   const [encuestas, setEncuestas] = useState([]);
-  const [creandoEncuesta, setCreandoEncuesta] = useState(false);
   const [nuevaEncuesta, setNuevaEncuesta] = useState({ 
       titulo: '', descripcion: '', tipo_grafico: 'BARRA', opciones: ['', ''] 
   });
@@ -67,7 +60,14 @@ function Comunidad() {
     cargarDatos();
   }, [tabIndex]);
 
-  const handleVolver = () => sessionUser.is_staff ? navigate('/dashboard') : navigate('/perfil');
+  // ✅ CORRECCIÓN AQUÍ: Redirección exacta según App.jsx
+  const handleVolver = () => {
+      if (sessionUser.is_staff || sessionUser.is_superuser) {
+          navigate('/admin-panel'); // Ruta correcta para Admin
+      } else {
+          navigate('/mi-perfil');   // Ruta correcta para Residentes
+      }
+  };
 
   const cargarDatos = () => {
       if (tabIndex === 0) cargarPosts();
@@ -145,7 +145,6 @@ function Comunidad() {
       } catch(e){ enqueueSnackbar(e.response?.data?.error || "Error al votar", {variant:'warning'}); }
   };
 
-  // Función para generar Pie Chart en CSS puro (Conic Gradient)
   const getPieChartStyle = (opciones, total) => {
       if(total === 0) return { background: '#e0e0e0' };
       let gradients = [];
@@ -172,19 +171,18 @@ function Comunidad() {
 
   return (
     <Box sx={{ bgcolor: '#f0f2f5', minHeight: '100vh', pb: 5 }}>
-        {/* HEADER CON PORTADA */}
         <Box sx={{ position: 'relative', bgcolor: 'white', mb: 3, boxShadow: 1 }}>
             <Box sx={{ 
                 height: { xs: 150, md: 250 }, 
                 background: config.imagen_portada ? `url(${config.imagen_portada})` : 'linear-gradient(90deg, #1976d2 0%, #64b5f6 100%)',
                 backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative'
             }}>
-                {/* ✅ BOTÓN ARREGLADO (z-index y position) */}
+                {/* BOTÓN CORREGIDO */}
                 <Button 
                     onClick={handleVolver} startIcon={<DashboardIcon />} variant="contained"
                     sx={{ position: 'absolute', top: 20, left: 20, zIndex: 100, bgcolor: 'rgba(255,255,255,0.9)', color: '#1565c0', fontWeight: 'bold', '&:hover': { bgcolor: '#fff' } }}
                 >
-                    {sessionUser.is_staff ? 'Panel Admin' : 'Mi Panel'}
+                    {sessionUser.is_staff ? 'Panel Admin' : 'Mi Perfil'}
                 </Button>
 
                 {sessionUser.is_staff && (
@@ -211,7 +209,6 @@ function Comunidad() {
         </Box>
 
         <Container maxWidth="md">
-            {/* --- MURO --- */}
             {tabIndex === 0 && (
                 <Grid container spacing={3}>
                     <Grid item xs={12}>
@@ -247,10 +244,8 @@ function Comunidad() {
                 </Grid>
             )}
 
-            {/* --- ENCUESTAS MEJORADAS --- */}
             {tabIndex === 1 && (
                 <Box>
-                    {/* CREAR ENCUESTA */}
                     <Paper sx={{ p: 3, mb: 4, borderRadius: 3, border: '1px solid #e0e0e0' }}>
                         <Typography variant="h6" fontWeight="bold" gutterBottom>🗳️ Crear Nueva Encuesta</Typography>
                         <TextField fullWidth label="Título de la pregunta" variant="outlined" size="small" sx={{ mb: 2 }} value={nuevaEncuesta.titulo} onChange={e=>setNuevaEncuesta({...nuevaEncuesta, titulo:e.target.value})} />
@@ -274,7 +269,6 @@ function Comunidad() {
                         <Button variant="contained" onClick={crearEncuesta} sx={{ borderRadius: 5 }}>Lanzar Encuesta</Button>
                     </Paper>
 
-                    {/* LISTADO DE ENCUESTAS */}
                     {encuestas.map(enc => (
                         <Card key={enc.id} sx={{ mb: 3, borderRadius: 3, boxShadow: 2 }}>
                             <CardHeader 
@@ -284,8 +278,6 @@ function Comunidad() {
                             />
                             <CardContent>
                                 <Typography paragraph color="text.secondary">{enc.descripcion}</Typography>
-                                
-                                {/* VISUALIZACIÓN BARRA */}
                                 {enc.tipo_grafico === 'BARRA' && (
                                     <Box>
                                         {enc.opciones.map(op => {
@@ -302,8 +294,6 @@ function Comunidad() {
                                         })}
                                     </Box>
                                 )}
-
-                                {/* VISUALIZACIÓN PASTEL */}
                                 {enc.tipo_grafico === 'PASTEL' && (
                                     <Grid container spacing={2} alignItems="center">
                                         <Grid item xs={12} md={5} display="flex" justifyContent="center">
@@ -329,7 +319,6 @@ function Comunidad() {
                                         </Grid>
                                     </Grid>
                                 )}
-                                
                                 {enc.ya_vote && <Typography variant="caption" color="success.main" sx={{ mt: 2, display: 'block', textAlign:'center' }}>✓ Ya participaste en esta encuesta</Typography>}
                             </CardContent>
                         </Card>
@@ -337,7 +326,6 @@ function Comunidad() {
                 </Box>
             )}
 
-            {/* --- QUEJAS --- */}
             {tabIndex === 2 && (
                 <Grid container spacing={3}>
                     <Grid item xs={12} md={4}>

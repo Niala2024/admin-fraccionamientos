@@ -60,12 +60,12 @@ function Comunidad() {
     cargarDatos();
   }, [tabIndex]);
 
-  // ✅ CORRECCIÓN AQUÍ: Redirección exacta según App.jsx
+  // ✅ CORRECCIÓN FINAL: Admin -> Panel Admin | Residente -> Dashboard
   const handleVolver = () => {
       if (sessionUser.is_staff || sessionUser.is_superuser) {
-          navigate('/admin-panel'); // Ruta correcta para Admin
+          navigate('/admin-panel'); 
       } else {
-          navigate('/mi-perfil');   // Ruta correcta para Residentes
+          navigate('/dashboard'); // Ahora lleva al Dashboard de Vecinos
       }
   };
 
@@ -177,12 +177,12 @@ function Comunidad() {
                 background: config.imagen_portada ? `url(${config.imagen_portada})` : 'linear-gradient(90deg, #1976d2 0%, #64b5f6 100%)',
                 backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative'
             }}>
-                {/* BOTÓN CORREGIDO */}
+                {/* BOTÓN CON REDIRECCIÓN CORREGIDA */}
                 <Button 
                     onClick={handleVolver} startIcon={<DashboardIcon />} variant="contained"
                     sx={{ position: 'absolute', top: 20, left: 20, zIndex: 100, bgcolor: 'rgba(255,255,255,0.9)', color: '#1565c0', fontWeight: 'bold', '&:hover': { bgcolor: '#fff' } }}
                 >
-                    {sessionUser.is_staff ? 'Panel Admin' : 'Mi Perfil'}
+                    {sessionUser.is_staff ? 'Panel Admin' : 'Mi Panel'}
                 </Button>
 
                 {sessionUser.is_staff && (
